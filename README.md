@@ -1,6 +1,6 @@
 # Traefik / Portainer Compose
 
-このリポジトリは、`Traefik` をベースにした Docker Compose 構成です。
+このリポジトリは、`mDNS` ベースのローカル LAN 向け `Traefik` / `Portainer` 用 Docker Compose 構成です。
 
 次の 2 パターンで利用できます。
 
@@ -16,8 +16,10 @@
 ## 前提
 
 - Docker Engine と Docker Compose Plugin が使えること
-- `80` と `443` を開けられること
-- Let's Encrypt を使う場合は対象ホスト名がこのサーバーを向いていること
+- `80` を開けられること
+- Raspberry Pi 側で `*.local` の名前解決ができること
+
+この構成は `http` 前提です。`Let's Encrypt` や公開向け `https` は使いません。
 
 ## 初期設定
 
@@ -30,16 +32,8 @@ cp .env.example .env
 必要に応じて `.env` を編集します。
 
 ```env
-TRAEFIK_ACME_EMAIL=admin@example.com
-PORTAINER_HOST=portainer.example.com
-```
-
-Let's Encrypt の保存先を作成します。
-
-```bash
-mkdir -p letsencrypt
-touch letsencrypt/acme.json
-chmod 600 letsencrypt/acme.json
+TRAEFIK_DASHBOARD_HOST=traefik.local
+PORTAINER_HOST=portainer.local
 ```
 
 ## 起動方法
@@ -56,7 +50,56 @@ docker compose up -d
 docker compose -f compose.yaml -f compose.portainer.yaml up -d
 ```
 
-`Portainer` は `PORTAINER_HOST` に設定したホスト名で公開されます。
+## アクセス URL
+
+- Traefik dashboard: `http://traefik.local`
+- Portainer: `http://portainer.local`
+
+Raspberry Pi のホスト名が別で、`portainer.local` や `traefik.local` を使いたい場合は、Pi 側で Avahi alias を追加してください。
+
+## Raspberry Pi 側の mDNS alias 設定
+
+Raspberry Pi は通常 `raspberrypi.local` のような 1 つの名前だけを `mDNS` で公開します。`traefik.local` と `portainer.local` を追加で使う場合は、別名を広告する設定が必要です。
+
+まず `avahi-utils` を入れます。
+
+```bash
+sudo apt update
+sudo apt install -y avahi-daemon avahi-utils
+```
+
+次に systemd のテンプレート unit を作成します。
+
+```ini
+[Unit]
+Description=Publish %I as an mDNS alias
+After=avahi-daemon.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/bin/sh -c 'set -- $$(/usr/bin/hostname -I); exec /usr/bin/avahi-publish-address -R %I "$$1"'
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+
+ファイル名は `/etc/systemd/system/avahi-alias@.service` とします。
+
+その後、2 つの alias を有効化します。
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now [email protected]
+sudo systemctl enable --now [email protected]
+```
+
+これで同じ Raspberry Pi に対して次の名前でアクセスできます。
+
+- `http://traefik.local`
+- `http://portainer.local`
 
 ## 停止方法
 
@@ -77,5 +120,7 @@ docker compose -f compose.yaml -f compose.portainer.yaml down
 - `compose.yaml` は常にベースとして使う
 - `compose.portainer.yaml` は `Portainer` が必要なときだけ追加する
 - `Portainer` は `Traefik` の `proxy` ネットワークに参加し、labels でルーティングする
+- `Traefik` dashboard は `traefik.local` で公開する
+- `Portainer` は `portainer.local` で公開する
 
 この分け方にしておくと、今後ほかのアプリを追加するときも `compose.<app>.yaml` を増やすだけで運用できます。

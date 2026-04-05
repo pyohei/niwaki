@@ -16,10 +16,8 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=proxy
-      - traefik.http.routers.portainer.rule=Host(`${PORTAINER_HOST:-portainer.localhost}`)
-      - traefik.http.routers.portainer.entrypoints=websecure
-      - traefik.http.routers.portainer.tls=true
-      - traefik.http.routers.portainer.tls.certresolver=letsencrypt
+      - traefik.http.routers.portainer.rule=Host(`${PORTAINER_HOST:-portainer.local}`)
+      - traefik.http.routers.portainer.entrypoints=web
       - traefik.http.services.portainer.loadbalancer.server.port=9000
 
 volumes:
