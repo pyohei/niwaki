@@ -18,6 +18,7 @@
 - Docker Engine と Docker Compose Plugin が使えること
 - `80` を開けられること
 - Raspberry Pi 側で `*.local` の名前解決ができること
+- `Traefik` は [`compose.yaml`](/Users/shohei/Dev/portainer/compose.yaml) の `traefik:v3.6` を使うこと
 
 この構成は `http` 前提です。`Let's Encrypt` や公開向け `https` は使いません。
 
@@ -88,12 +89,16 @@ WantedBy=multi-user.target
 
 ファイル名は `/etc/systemd/system/avahi-alias@.service` とします。
 
-その後、2 つの alias を有効化します。
+その後、`avahi-alias@.service` の instance を 2 つ有効化します。
+
+- `traefik.local` 用
+- `portainer.local` 用
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now [email protected]
-sudo systemctl enable --now [email protected]
+for alias in traefik.local portainer.local; do
+  sudo systemctl enable --now "avahi-alias@${alias}.service"
+done
 ```
 
 これで同じ Raspberry Pi に対して次の名前でアクセスできます。
