@@ -6,11 +6,14 @@
 
 - `Traefik` 単体で起動する
 - `Traefik` と `Portainer` を一緒に起動する
+- 必要なら `mDNS alias` 管理 UI を追加する
 
 ## ファイル構成
 
 - [`compose.yaml`](/Users/shohei/Dev/portainer/compose.yaml): `Traefik` の基本構成
 - [`compose.portainer.yaml`](/Users/shohei/Dev/portainer/compose.portainer.yaml): `Portainer` を追加するための構成
+- [`compose.mdns-admin.yaml`](/Users/shohei/Dev/portainer/compose.mdns-admin.yaml): `mDNS alias` 管理 UI の構成
+- [`mdns-admin/`](/Users/shohei/Dev/portainer/mdns-admin): `mDNS alias` 管理 UI 本体
 - [`.env.example`](/Users/shohei/Dev/portainer/.env.example): 環境変数のサンプル
 
 ## 前提
@@ -35,7 +38,12 @@ cp .env.example .env
 ```env
 TRAEFIK_DASHBOARD_HOST=traefik.local
 PORTAINER_HOST=portainer.local
+MDNS_ADMIN_USERNAME=admin
+MDNS_ADMIN_PASSWORD=
+MDNS_TARGET_IP=192.168.1.10
 ```
+
+`MDNS_ADMIN_PASSWORD` を空にすると、`mdns-admin` は初回起動時にランダムなパスワードを生成し、volume 内に保存して再起動後も使い回します。
 
 ## 起動方法
 
@@ -51,12 +59,56 @@ docker compose up -d
 docker compose -f compose.yaml -f compose.portainer.yaml up -d
 ```
 
+### 3. Traefik と mDNS alias 管理 UI を使う
+
+```bash
+docker compose -f compose.yaml -f compose.mdns-admin.yaml up -d --build
+```
+
+### 4. Traefik と Portainer と mDNS alias 管理 UI を使う
+
+```bash
+docker compose -f compose.yaml -f compose.portainer.yaml -f compose.mdns-admin.yaml up -d --build
+```
+
 ## アクセス URL
 
 - Traefik dashboard: `http://traefik.local`
 - Portainer: `http://portainer.local`
+- mDNS alias 管理 UI: `http://raspberrypi.local/mdns/`
 
 Raspberry Pi のホスト名が別で、`portainer.local` や `traefik.local` を使いたい場合は、Pi 側で Avahi alias を追加してください。
+
+`mDNS alias` 管理 UI は `raspberrypi.local` 配下に置いているので、alias 自体がまだ無くても開けます。
+
+## mDNS alias 管理 UI
+
+[`compose.mdns-admin.yaml`](/Users/shohei/Dev/portainer/compose.mdns-admin.yaml) は、ブラウザから `*.local` alias を追加・削除するための UI です。
+
+- ルートは `http://raspberrypi.local/mdns/`
+- HTTP Basic 認証を使います
+- 追加した alias は Docker-managed な publisher コンテナとして維持されます
+- 既存の `systemd` ベース alias はそのまま残り、この UI では一覧に出ません
+- host 側で `avahi-daemon` が動いている必要があります
+- `MDNS_ADMIN_PASSWORD` が空なら初回起動時に自動生成されます
+
+使い方は次の通りです。
+
+1. `.env` の `MDNS_TARGET_IP` を Raspberry Pi の LAN 内 IP に合わせる
+2. `MDNS_ADMIN_PASSWORD` を固定値にするか、空のまま自動生成にする
+3. 必要なら `sudo apt install -y avahi-daemon` を入れて有効化する
+4. `compose.mdns-admin.yaml` を追加して起動する
+5. `http://raspberrypi.local/mdns/` を開いて alias を追加する
+
+この UI で新しい alias を作れば、以後は Raspberry Pi に SSH せずに `gitea.local` などを増やせます。
+
+自動生成したパスワードは初回起動ログに出ます。確認する場合は次を使います。
+
+```bash
+docker compose -f compose.yaml -f compose.mdns-admin.yaml logs mdns-admin
+```
+
+新しいランダムパスワードにしたい場合は、`mdns_admin_data` volume を削除してから再起動してください。
 
 ## Raspberry Pi 側の mDNS alias 設定
 
@@ -120,12 +172,20 @@ docker compose down
 docker compose -f compose.yaml -f compose.portainer.yaml down
 ```
 
+### Traefik と mDNS alias 管理 UI を停止
+
+```bash
+docker compose -f compose.yaml -f compose.mdns-admin.yaml down
+```
+
 ## 構成の考え方
 
 - `compose.yaml` は常にベースとして使う
 - `compose.portainer.yaml` は `Portainer` が必要なときだけ追加する
+- `compose.mdns-admin.yaml` は alias をブラウザから管理したいときに追加する
 - `Portainer` は `Traefik` の `proxy` ネットワークに参加し、labels でルーティングする
 - `Traefik` dashboard は `traefik.local` で公開する
 - `Portainer` は `portainer.local` で公開する
+- `mDNS alias` 管理 UI は `raspberrypi.local/mdns/` で公開する
 
 この分け方にしておくと、今後ほかのアプリを追加するときも `compose.<app>.yaml` を増やすだけで運用できます。

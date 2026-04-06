@@ -1,0 +1,30 @@
+services:
+  mdns-admin:
+    build:
+      context: ./mdns-admin
+    image: mdns-admin:local
+    container_name: mdns-admin
+    restart: unless-stopped
+    environment:
+      MDNS_ADMIN_USERNAME: ${MDNS_ADMIN_USERNAME:-admin}
+      MDNS_ADMIN_PASSWORD: ${MDNS_ADMIN_PASSWORD:-}
+      MDNS_PUBLISH_IMAGE: ${MDNS_PUBLISH_IMAGE:-mdns-admin:local}
+      MDNS_TARGET_IP: ${MDNS_TARGET_IP:-192.168.1.10}
+      DOCKER_SOCKET_PATH: /var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - mdns_admin_data:/data
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.mdns-admin.rule=PathPrefix(`/mdns`)
+      - traefik.http.routers.mdns-admin.entrypoints=web
+      - traefik.http.routers.mdns-admin.priority=100
+      - traefik.http.routers.mdns-admin.middlewares=mdns-admin-strip
+      - traefik.http.middlewares.mdns-admin-strip.stripprefix.prefixes=/mdns
+      - traefik.http.services.mdns-admin.loadbalancer.server.port=8080
+
+volumes:
+  mdns_admin_data:
