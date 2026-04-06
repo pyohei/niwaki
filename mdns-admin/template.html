@@ -213,10 +213,11 @@
         const submitter = form.querySelector('button[type="submit"]');
         if (submitter) submitter.disabled = true;
         try {
+          const body = new URLSearchParams(new FormData(form));
           const response = await fetch(form.action, {
             method: form.method || "POST",
             headers: { Accept: "application/json" },
-            body: new FormData(form)
+            body
           });
           const payload = await response.json();
           if (!response.ok || !payload.ok) {
