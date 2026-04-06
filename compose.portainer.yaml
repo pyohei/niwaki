@@ -19,6 +19,11 @@ services:
       - traefik.http.routers.portainer.rule=Host(`${PORTAINER_HOST:-portainer.local}`)
       - traefik.http.routers.portainer.entrypoints=web
       - traefik.http.services.portainer.loadbalancer.server.port=9000
+      - "homepage.group=Infrastructure"
+      - "homepage.name=Portainer"
+      - "homepage.icon=portainer.png"
+      - "homepage.href=https://portainer.local/"
+      - "homepage.description=Container management"
 
 volumes:
   portainer_data:
