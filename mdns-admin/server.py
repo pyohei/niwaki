@@ -196,7 +196,7 @@ def render_alias_rows(aliases):
         <td>{status}</td>
         <td>{created}</td>
         <td>
-          <form method="post" action="aliases/{delete_target}/delete" onsubmit="return confirm('Delete {alias}?');">
+          <form method="post" action="aliases/{delete_target}/delete" data-async="true" data-confirm="Delete {alias}?">
             <button type="submit">Delete</button>
           </form>
         </td>
@@ -272,9 +272,9 @@ class Handler(BaseHTTPRequestHandler):
             if alias in existing:
                 raise ValueError(f"{alias} already exists.")
             docker_client.create_alias_container(alias, MDNS_TARGET_IP, MDNS_PUBLISH_IMAGE)
-            self._redirect_with_message(f"Created {alias}.")
+            self._handle_success(f"Created {alias}.")
         except (ValueError, DockerError) as exc:
-            self._render_index(error=str(exc))
+            self._handle_error(str(exc))
 
     def _handle_delete(self, path):
         try:
@@ -283,11 +283,11 @@ class Handler(BaseHTTPRequestHandler):
             for item in docker_client.list_alias_containers():
                 if item["alias"] == alias:
                     docker_client.delete_alias_container(item["id"])
-                    self._redirect_with_message(f"Deleted {alias}.")
+                    self._handle_success(f"Deleted {alias}.")
                     return
             raise ValueError(f"{alias} was not found.")
         except (ValueError, DockerError) as exc:
-            self._render_index(error=str(exc))
+            self._handle_error(str(exc))
 
     def _read_form(self):
         length = int(self.headers.get("Content-Length", "0"))
@@ -295,10 +295,29 @@ class Handler(BaseHTTPRequestHandler):
         return urllib.parse.parse_qs(raw, keep_blank_values=True)
 
     def _redirect_with_message(self, message):
-        location = "/?" + urllib.parse.urlencode({"message": message})
+        parsed = urllib.parse.urlparse(self.path)
+        segments = [segment for segment in parsed.path.split("/") if segment]
+        prefix = "../" * len(segments)
+        location = f"{prefix}?{urllib.parse.urlencode({'message': message})}"
         self.send_response(303)
         self.send_header("Location", location)
         self.end_headers()
+
+    def _wants_json(self):
+        accept = self.headers.get("Accept", "")
+        return "application/json" in accept
+
+    def _handle_success(self, message):
+        if self._wants_json():
+            self._send_json(200, {"ok": True, "message": message})
+            return
+        self._redirect_with_message(message)
+
+    def _handle_error(self, message):
+        if self._wants_json():
+            self._send_json(400, {"ok": False, "message": message})
+            return
+        self._render_index(error=message)
 
     def _render_index(self, *, error=""):
         parsed = urllib.parse.urlparse(self.path)
@@ -333,6 +352,14 @@ class Handler(BaseHTTPRequestHandler):
         encoded = page.encode("utf-8")
         self.send_response(status_code)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(encoded)))
+        self.end_headers()
+        self.wfile.write(encoded)
+
+    def _send_json(self, status_code: int, payload):
+        encoded = json.dumps(payload).encode("utf-8")
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(encoded)))
         self.end_headers()
         self.wfile.write(encoded)

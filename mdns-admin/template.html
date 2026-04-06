@@ -69,6 +69,9 @@
       font-weight: 600;
       margin-bottom: 10px;
     }
+    .banner.hidden {
+      display: none;
+    }
     .ok { background: var(--ok-bg); color: var(--ok); }
     .error { background: var(--error-bg); color: var(--error); }
     .warn { background: var(--warn-bg); color: var(--warn); }
@@ -156,12 +159,13 @@
       <h1>mDNS Alias Manager</h1>
       <p>Docker-managed aliases for Avahi.</p>
     </section>
+    <p id="js-banner" class="banner hidden" role="status"></p>
     {{BANNERS}}
     <section class="grid">
       <article class="card">
         <h2>Add Alias</h2>
         <p>Enter a single-label name such as <code>gitea</code> or <code>whoami.local</code>.</p>
-        <form method="post" action="aliases">
+        <form method="post" action="aliases" data-async="true">
           <label for="alias">Alias</label>
           <input id="alias" name="alias" type="text" placeholder="gitea.local" required>
           <button type="submit" {{BUTTON_DISABLED}}>Create Alias</button>
@@ -196,5 +200,47 @@
       </table>
     </section>
   </main>
+  <script>
+    (() => {
+      const banner = document.getElementById("js-banner");
+
+      function showBanner(kind, message) {
+        banner.className = `banner ${kind}`;
+        banner.textContent = message;
+      }
+
+      async function submitForm(form) {
+        const submitter = form.querySelector('button[type="submit"]');
+        if (submitter) submitter.disabled = true;
+        try {
+          const response = await fetch(form.action, {
+            method: form.method || "POST",
+            headers: { Accept: "application/json" },
+            body: new FormData(form)
+          });
+          const payload = await response.json();
+          if (!response.ok || !payload.ok) {
+            throw new Error(payload.message || "Request failed.");
+          }
+          showBanner("ok", payload.message || "Done.");
+          window.location.reload();
+        } catch (error) {
+          showBanner("error", error.message || "Request failed.");
+          if (submitter) submitter.disabled = false;
+        }
+      }
+
+      document.querySelectorAll('form[data-async="true"]').forEach((form) => {
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const message = form.dataset.confirm;
+          if (message && !window.confirm(message)) {
+            return;
+          }
+          submitForm(form);
+        });
+      });
+    })();
+  </script>
 </body>
 </html>
