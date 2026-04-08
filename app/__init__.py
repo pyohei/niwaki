@@ -1,0 +1,1 @@
+"""Niwaki application package."""

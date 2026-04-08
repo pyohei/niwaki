@@ -1,0 +1,11 @@
+{
+  "name": "niwaki-ui",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.js -i ./app/frontend/styles.src.css -o ./app/frontend/styles.css --minify"
+  },
+  "devDependencies": {
+    "daisyui": "4.12.24",
+    "tailwindcss": "3.4.4"
+  }
+}
