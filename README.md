@@ -1,114 +1,156 @@
-# Traefik / mDNS Compose
+# Niwaki
 
-このリポジトリは、`mDNS` ベースのローカル LAN 向け `Traefik` と `mDNS alias` 管理 UI 用 Docker Compose 構成です。
+Niwaki は、単一ホストの Docker Compose スタックをブラウザから管理するための小さなデプロイ UI です。
+Git 管理された Compose ファイルを source of truth とし、stack 一覧、deploy、logs、mDNS alias 管理を一つの画面から扱えるようにします。
 
-## ファイル構成
+このリポジトリには、既存の `Traefik` / `mdns-admin` 構成も同居しています。
+当面は以下を並行して持ちます。
 
-- [`compose.yaml`](/Users/shohei/Dev/portainer/compose.yaml): `Traefik` の基本構成
-- [`compose.mdns-admin.yaml`](/Users/shohei/Dev/portainer/compose.mdns-admin.yaml): `mDNS alias` 管理 UI の構成
-- [`mdns-admin/`](/Users/shohei/Dev/portainer/mdns-admin): `mDNS alias` 管理 UI 本体
-- [`.env.example`](/Users/shohei/Dev/portainer/.env.example): 環境変数のサンプル
+- `compose.yaml`: Traefik
+- `compose.mdns-admin.yaml`: 既存の mDNS alias 管理 UI
+- `compose.niwaki.yaml`: Niwaki を Traefik に載せる overlay
+- `mdns-admin/`: 既存の mDNS alias 管理 UI 実装
+- `app/`: Niwaki 本体
+- `config/stacks.example.yaml`: 管理対象 stack の例
+- `docs/`: UI / bootstrap / mDNS の設計メモ
 
-## 前提
+## 現在の状態
 
-- Docker Engine と Docker Compose Plugin が使えること
-- `80` を開けられること
-- Raspberry Pi 側で `*.local` の名前解決ができること
-- host 側で `avahi-daemon` が動いていること
+初期実装として、以下を入れています。
 
-この構成は `http` 前提です。`Let's Encrypt` や公開向け `https` は使いません。
+- stack registry の読み込み
+- stack 一覧 / 詳細 API
+- `git fetch` / `git pull --ff-only`
+- `docker compose config` / `pull` / `up -d` / `restart` / `down`
+- `docker compose logs`
+- 実行履歴の JSON Lines 保存
+- `mdns-admin` 互換ラベルを使った alias 一覧 / 作成 / 削除
+- SQLite ベースの stack registry 編集
+- システム共通の Git credential 保存
+- stack ごとの `repo_url` 保存と `git clone`
+- Portainer / ECS 風の簡易 Web UI
+- `daisyUI v4.12.24` を使った静的 UI スタイル
 
-## 初期設定
+## ディレクトリ構成
 
-`.env` を作成します。
-
-```bash
-cp .env.example .env
-```
-
-必要に応じて `.env` を編集します。
-
-```env
-TRAEFIK_DASHBOARD_HOST=traefik.local
-MDNS_ADMIN_USERNAME=admin
-MDNS_ADMIN_PASSWORD=
-MDNS_TARGET_IP=192.168.1.10
-```
-
-- `TRAEFIK_DASHBOARD_HOST`: Traefik dashboard 用の `.local` 名
-- `MDNS_TARGET_IP`: Raspberry Pi の LAN 内 IP
-- `MDNS_ADMIN_PASSWORD`: 空にすると初回起動時にランダム生成して volume に保存
-
-`avahi-daemon` が未導入なら入れておきます。
-
-```bash
-sudo apt update
-sudo apt install -y avahi-daemon
+```text
+.
+├── AGENTS.md
+├── CLAUDE.md
+├── README.md
+├── app/
+│   ├── backend/
+│   └── frontend/
+├── config/
+│   └── stacks.example.yaml
+├── docs/
+├── compose.yaml
+├── compose.mdns-admin.yaml
+└── mdns-admin/
 ```
 
 ## 起動方法
 
-### 1. Traefik 単体で使う
+今の主導線は `Traefik` 経由です。alias が無くても `raspberrypi.local/niwaki/` で入れる前提にして、`deploy.local` は追加したら使える常用 URL として扱います。
+
+### 1. 設定ファイルを用意する
+
+```bash
+cp .env.example .env
+cp config/stacks.example.yaml config/stacks.local.yaml
+```
+
+`.env` の例:
+
+```env
+APP_HOST=0.0.0.0
+APP_PORT=8787
+APP_BASE_URL=http://raspberrypi.local/niwaki/
+APP_BASE_PATH=/niwaki
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=change-me
+STACK_REGISTRY_PATH=config/stacks.local.yaml
+SETTINGS_DB_PATH=./data/niwaki.db
+STACK_ROOT=/opt/rpi-infra
+MDNS_TARGET_IP=192.168.1.10
+```
+
+### 2. stack registry を編集する
+
+初回起動時に、`config/stacks.local.yaml` の内容を SQLite registry へ import します。
+以後の stack 追加・更新・削除はブラウザ上の `Stack Registry` パネルから行います。
+`repo_url` を入れておくと、`Stack Detail` から `Clone` を実行できます。
+
+空の状態から始めたい場合でも、`STACK_REGISTRY_PATH` は seed ファイルとして残しておく方が安全です。
+
+### 3. Traefik 経由で起動する
+
+```bash
+docker compose -f compose.yaml -f compose.mdns-admin.yaml -f compose.niwaki.yaml up -d --build
+```
+
+デフォルトでは以下で開けます。
+
+- primary URL: `http://raspberrypi.local/niwaki/`
+- alias URL: `http://deploy.local/`
+
+起動後は UI 上で以下を管理できます。
+
+- `Stack Registry`: stack の追加 / 更新 / 削除
+- `Clone`: stack ごとの `repo_url` を使った `git clone`
+- `Git Credential`: システム共通の HTTPS credential 保存
+- `mDNS Aliases`: `mdns-admin` 互換ラベルでの alias 管理
+
+### 4. 直接起動で確認する場合
+
+```bash
+python3 -m app.backend
+```
+
+この場合だけ `http://raspberrypi.local:8787/` や `http://<raspberry-pi-ip>:8787/` で確認できます。
+
+## UI スタイルの更新方法
+
+フロントエンドの CSS は `tailwindcss@3.4.4` と `daisyui@4.12.24` を pinned して生成します。
+
+```bash
+npm install
+npm run build:css
+```
+
+## Git credential について
+
+Git credential は `SETTINGS_DB_PATH` の SQLite に 1 組だけ保存し、`git clone` / `git fetch` / `git pull --ff-only` 実行時にだけ `GIT_ASKPASS` 経由で注入します。
+command log や UI 一覧には password / token 自体は出しません。
+
+## 既存の Traefik / mDNS 構成
+
+Traefik 単体:
 
 ```bash
 docker compose up -d
 ```
 
-### 2. Traefik と mDNS alias 管理 UI を使う
+Traefik と既存 mDNS 管理 UI:
 
 ```bash
 docker compose -f compose.yaml -f compose.mdns-admin.yaml up -d --build
 ```
 
-## アクセス URL
-
-- Traefik dashboard: `http://traefik.local`
-- mDNS alias 管理 UI: `http://raspberrypi.local/mdns/`
-
-`mDNS alias` 管理 UI は `raspberrypi.local` 配下に置いているので、alias 自体がまだ無くても開けます。
-
-## mDNS alias 管理 UI
-
-[`compose.mdns-admin.yaml`](/Users/shohei/Dev/portainer/compose.mdns-admin.yaml) は、ブラウザから `*.local` alias を追加・削除するための UI です。
-
-- ルートは `http://raspberrypi.local/mdns/`
-- HTTP Basic 認証を使います
-- 追加した alias は Docker-managed な publisher コンテナとして維持されます
-- 既存の `systemd` ベース alias は一覧に出ません
-- `MDNS_ADMIN_PASSWORD` が空なら初回起動時に自動生成されます
-
-使い方は次の通りです。
-
-1. `.env` の `MDNS_TARGET_IP` を Raspberry Pi の LAN 内 IP に合わせる
-2. `MDNS_ADMIN_PASSWORD` を固定値にするか、空のまま自動生成にする
-3. `compose.mdns-admin.yaml` を追加して起動する
-4. `http://raspberrypi.local/mdns/` を開いて alias を追加する
-
-この UI で新しい alias を作れば、以後は Raspberry Pi に SSH せずに `gitea.local` などを増やせます。
-
-自動生成したパスワードは初回起動ログに出ます。確認する場合は次を使います。
+Traefik と Niwaki:
 
 ```bash
-docker compose -f compose.yaml -f compose.mdns-admin.yaml logs mdns-admin
+docker compose -f compose.yaml -f compose.niwaki.yaml up -d --build
 ```
 
-新しいランダムパスワードにしたい場合は、`mdns_admin_data` volume を削除してから再起動してください。
+既存 mDNS 管理 UI は、`http://raspberrypi.local/mdns/` で引き続き使えます。
+Niwaki 側の mDNS 管理は、この UI のラベル規約と互換性を持たせています。
 
-## 停止方法
+## 今後の前提
 
-### Traefik 単体を停止
-
-```bash
-docker compose down
-```
-
-### Traefik と mDNS alias 管理 UI を停止
-
-```bash
-docker compose -f compose.yaml -f compose.mdns-admin.yaml down
-```
-
-## 補足
-
-- 以前の `systemd` ベース alias と同じ名前を `mdns-admin` でも作ると重複広告になるので避けてください
-- 今後ほかのアプリを追加するときは、各 app 用の Compose を別ファイルで足して `Host(\`gitea.local\`)` のような Traefik label を付ける運用が素直です
+- Git が正本
+- stack registry で明示した Compose だけを操作
+- `Portainer` の内部作業ディレクトリには依存しない
+- `raspberrypi.local/niwaki/` を alias 不要の primary 導線として持つ
+- `deploy.local` は追加後の常用 URL として扱う
+- `raspberrypi.local:8787` は compose の標準導線ではなく、必要時の直接確認用に留める

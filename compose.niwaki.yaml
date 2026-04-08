@@ -1,0 +1,58 @@
+services:
+  niwaki:
+    build:
+      context: ./app
+    image: niwaki:local
+    container_name: niwaki
+    restart: unless-stopped
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8787
+      APP_BASE_URL: ${APP_BASE_URL:-http://raspberrypi.local/niwaki/}
+      APP_BASE_PATH: ${APP_BASE_PATH:-/niwaki}
+      BOOTSTRAP_HOST: ${BOOTSTRAP_HOST:-raspberrypi.local}
+      BOOTSTRAP_PORT: ${BOOTSTRAP_PORT:-80}
+      TRAEFIK_ENABLED: ${TRAEFIK_ENABLED:-true}
+      TRAEFIK_HOST: ${TRAEFIK_HOST:-deploy.local}
+      TRAEFIK_FALLBACK_HOST: ${TRAEFIK_FALLBACK_HOST:-raspberrypi.local}
+      TRAEFIK_ENTRYPOINT: ${TRAEFIK_ENTRYPOINT:-web}
+      TRAEFIK_DOCKER_NETWORK: ${TRAEFIK_DOCKER_NETWORK:-proxy}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+      STACK_REGISTRY_PATH: ${STACK_REGISTRY_PATH:-config/stacks.local.yaml}
+      SETTINGS_DB_PATH: ${SETTINGS_DB_PATH:-./data/niwaki.db}
+      STACK_ROOT: ${STACK_ROOT:-/opt/rpi-infra}
+      GIT_DEFAULT_BRANCH: ${GIT_DEFAULT_BRANCH:-main}
+      GIT_PULL_FLAGS: ${GIT_PULL_FLAGS:---ff-only}
+      COMMAND_LOG_RETENTION_DAYS: ${COMMAND_LOG_RETENTION_DAYS:-30}
+      COMMAND_OUTPUT_MAX_LINES: ${COMMAND_OUTPUT_MAX_LINES:-200}
+      AUDIT_LOG_PATH: ${AUDIT_LOG_PATH:-./data/command-history.jsonl}
+      DOCKER_SOCKET_PATH: /var/run/docker.sock
+      DOCKER_API_VERSION: ${DOCKER_API_VERSION:-v1.41}
+      MDNS_ENABLED: ${MDNS_ENABLED:-true}
+      MDNS_DEFAULT_DOMAIN: ${MDNS_DEFAULT_DOMAIN:-local}
+      MDNS_PUBLISH_IMAGE: ${MDNS_PUBLISH_IMAGE:-mdns-admin:local}
+      MDNS_TARGET_IP: ${MDNS_TARGET_IP:-}
+      MDNS_MANAGED_LABEL: ${MDNS_MANAGED_LABEL:-io.mdns-admin.managed}
+      MDNS_ALIAS_LABEL: ${MDNS_ALIAS_LABEL:-io.mdns-admin.alias}
+      MDNS_TARGET_IP_LABEL: ${MDNS_TARGET_IP_LABEL:-io.mdns-admin.target-ip}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config:/app/config
+      - ./data:/app/data
+      - ${STACK_ROOT:-/opt/rpi-infra}:${STACK_ROOT:-/opt/rpi-infra}
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_DOCKER_NETWORK:-proxy}
+      - traefik.http.routers.niwaki.rule=Host(`${TRAEFIK_HOST:-deploy.local}`)
+      - traefik.http.routers.niwaki.entrypoints=${TRAEFIK_ENTRYPOINT:-web}
+      - traefik.http.routers.niwaki.service=niwaki
+      - traefik.http.routers.niwaki-fallback.rule=Host(`${TRAEFIK_FALLBACK_HOST:-raspberrypi.local}`) && PathPrefix(`${APP_BASE_PATH:-/niwaki}`)
+      - traefik.http.routers.niwaki-fallback.entrypoints=${TRAEFIK_ENTRYPOINT:-web}
+      - traefik.http.routers.niwaki-fallback.middlewares=niwaki-strip
+      - traefik.http.routers.niwaki-fallback.service=niwaki
+      - traefik.http.middlewares.niwaki-strip.stripprefix.prefixes=${APP_BASE_PATH:-/niwaki}
+      - traefik.http.services.niwaki.loadbalancer.server.port=8787

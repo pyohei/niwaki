@@ -1,0 +1,40 @@
+stacks:
+  - id: traefik
+    name: Traefik
+    cwd: /opt/rpi-infra
+    repo_url: https://github.com/example/rpi-infra.git
+    compose_file: compose.yaml
+    branch: main
+    tags:
+      - infra
+      - proxy
+
+  - id: homepage
+    name: Homepage
+    cwd: /opt/rpi-infra
+    repo_url: https://github.com/example/rpi-infra.git
+    compose_file: compose.homepage.yaml
+    branch: main
+    tags:
+      - infra
+      - dashboard
+
+  - id: mdns-admin
+    name: mDNS Admin
+    cwd: /opt/rpi-infra
+    repo_url: https://github.com/example/rpi-infra.git
+    compose_file: compose.mdns-admin.yaml
+    branch: main
+    tags:
+      - infra
+      - mdns
+
+  - id: niwaki
+    name: Niwaki
+    cwd: /opt/rpi-infra
+    repo_url: https://github.com/example/rpi-infra.git
+    compose_file: compose.niwaki.yaml
+    branch: main
+    tags:
+      - infra
+      - deploy
