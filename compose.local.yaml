@@ -1,0 +1,19 @@
+services:
+  niwaki:
+    ports:
+      - "8787:8787"
+    environment:
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8787/}
+      APP_BASE_PATH: ${APP_BASE_PATH:-}
+      BOOTSTRAP_HOST: ${BOOTSTRAP_HOST:-localhost}
+      BOOTSTRAP_PORT: ${BOOTSTRAP_PORT:-8787}
+      TRAEFIK_ENABLED: ${TRAEFIK_ENABLED:-false}
+      TRAEFIK_HOST: ${TRAEFIK_HOST:-localhost}
+      TRAEFIK_FALLBACK_HOST: ${TRAEFIK_FALLBACK_HOST:-localhost}
+      MDNS_ENABLED: ${MDNS_ENABLED:-false}
+    labels:
+      traefik.enable: "false"
+
+networks:
+  proxy:
+    name: niwaki-local
