@@ -126,6 +126,21 @@ install_base_packages() {
   run_as_root apt-get install -y ca-certificates curl git gnupg openssl
 }
 
+install_mdns_runtime() {
+  log "Installing mDNS runtime packages..."
+  run_as_root apt-get install -y avahi-daemon dbus
+
+  if ! command -v systemctl >/dev/null 2>&1; then
+    return
+  fi
+
+  if ! run_as_root systemctl is-active --quiet dbus; then
+    run_as_root systemctl start dbus
+  fi
+
+  run_as_root systemctl enable --now avahi-daemon
+}
+
 resolve_docker_repo_family() {
   local arch os_id os_like
 
@@ -326,6 +341,7 @@ main() {
   stack_root="${NIWAKI_STACK_ROOT:-${install_dir}/stacks}"
 
   install_base_packages
+  install_mdns_runtime
   install_docker
   ensure_docker_group
   clone_or_update_repo "$install_dir"
