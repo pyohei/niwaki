@@ -183,8 +183,6 @@ Traefik 単体:
 docker compose up -d
 ```
 
-Traefik と既存 mDNS 管理 UI:
-
 Traefik と Niwaki:
 
 ```bash
