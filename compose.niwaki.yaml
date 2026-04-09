@@ -13,7 +13,7 @@ services:
       BOOTSTRAP_HOST: ${BOOTSTRAP_HOST:-raspberrypi.local}
       BOOTSTRAP_PORT: ${BOOTSTRAP_PORT:-80}
       TRAEFIK_ENABLED: ${TRAEFIK_ENABLED:-true}
-      TRAEFIK_HOST: ${TRAEFIK_HOST:-deploy.local}
+      TRAEFIK_HOST: ${TRAEFIK_HOST:-niwaki.local}
       TRAEFIK_FALLBACK_HOST: ${TRAEFIK_FALLBACK_HOST:-raspberrypi.local}
       TRAEFIK_ENTRYPOINT: ${TRAEFIK_ENTRYPOINT:-web}
       TRAEFIK_DOCKER_NETWORK: ${TRAEFIK_DOCKER_NETWORK:-proxy}
@@ -31,7 +31,7 @@ services:
       DOCKER_API_VERSION: ${DOCKER_API_VERSION:-v1.41}
       MDNS_ENABLED: ${MDNS_ENABLED:-true}
       MDNS_DEFAULT_DOMAIN: ${MDNS_DEFAULT_DOMAIN:-local}
-      MDNS_PUBLISH_IMAGE: ${MDNS_PUBLISH_IMAGE:-mdns-admin:local}
+      MDNS_PUBLISH_IMAGE: ${MDNS_PUBLISH_IMAGE:-niwaki:local}
       MDNS_TARGET_IP: ${MDNS_TARGET_IP:-}
       MDNS_MANAGED_LABEL: ${MDNS_MANAGED_LABEL:-io.mdns-admin.managed}
       MDNS_ALIAS_LABEL: ${MDNS_ALIAS_LABEL:-io.mdns-admin.alias}
@@ -45,7 +45,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=${TRAEFIK_DOCKER_NETWORK:-proxy}
-      - traefik.http.routers.niwaki.rule=Host(`${TRAEFIK_HOST:-deploy.local}`)
+      - traefik.http.routers.niwaki.rule=Host(`${TRAEFIK_HOST:-niwaki.local}`)
       - traefik.http.routers.niwaki.entrypoints=${TRAEFIK_ENTRYPOINT:-web}
       - traefik.http.routers.niwaki.service=niwaki
       - traefik.http.routers.niwaki-fallback.rule=Host(`${TRAEFIK_FALLBACK_HOST:-raspberrypi.local}`) && PathPrefix(`${APP_BASE_PATH:-/niwaki}`)

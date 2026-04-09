@@ -1,7 +1,7 @@
 # mDNS 機能メモ
 
 ## 取り込みたい考え方
-`/Users/shohei/Dev/portainer/mdns-admin` から、機能そのものだけでなく設計上の良さを取り込む。
+旧 `mdns-admin` 実装から、機能そのものだけでなく設計上の良さを取り込む。
 
 ## 参考にする点
 - Docker API を叩く責務が専用クラスに分かれている
@@ -13,6 +13,7 @@
 ## 新しい deploy UI での取り込み方
 - mDNS alias 管理は独立 feature とする
 - 管理対象の alias container には既存の `io.mdns-admin.*` ラベルを使い、移行期間の互換性を保つ
+- publisher は `Niwaki` イメージ自身が持ち、通常運用で standalone `mdns-admin` UI を必須にしない
 - Docker API 呼び出しは deploy 機能と shared でも、mDNS 用の service 層を分ける
 - 一覧・作成・削除の UI を stack 管理とは別タブで持つ
 - 既存 alias との衝突検知や入力検証を行う
@@ -21,7 +22,7 @@
 
 ## 到達性の考え方
 - `raspberrypi.local/niwaki/` は alias 不要の primary URL
-- `deploy.local` のような alias は、設定後の常用 URL
+- `niwaki.local` のような alias は、設定後の常用 URL
 - `raspberrypi.local:PORT` は必要時だけ使う直接確認用 URL
 - mDNS alias が未設定でも管理 UI は使えるべき
 

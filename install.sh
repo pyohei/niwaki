@@ -279,10 +279,7 @@ write_env_file_if_missing() {
   env_tmp="$(mktemp)"
   cat >"$env_tmp" <<EOF
 TRAEFIK_DASHBOARD_HOST=traefik.local
-MDNS_ADMIN_USERNAME=admin
-MDNS_ADMIN_PASSWORD=${NIWAKI_MDNS_ADMIN_PASSWORD:-}
 MDNS_TARGET_IP=${primary_ip}
-MDNS_PUBLISH_IMAGE=mdns-admin:local
 
 APP_HOST=0.0.0.0
 APP_PORT=8787
@@ -293,7 +290,7 @@ BOOTSTRAP_HOST=${primary_fqdn}
 BOOTSTRAP_PORT=80
 
 TRAEFIK_ENABLED=true
-TRAEFIK_HOST=deploy.local
+TRAEFIK_HOST=niwaki.local
 TRAEFIK_FALLBACK_HOST=${primary_fqdn}
 TRAEFIK_ENTRYPOINT=web
 TRAEFIK_DOCKER_NETWORK=proxy
@@ -314,9 +311,9 @@ start_services() {
   local install_dir
 
   install_dir="$1"
-  log "Starting Traefik, mDNS admin, and Niwaki..."
+  log "Starting Traefik and Niwaki..."
   cd "$install_dir"
-  docker_cli compose -f compose.yaml -f compose.mdns-admin.yaml -f compose.niwaki.yaml up -d --build
+  docker_cli compose -f compose.yaml -f compose.niwaki.yaml up -d --build
 }
 
 main() {

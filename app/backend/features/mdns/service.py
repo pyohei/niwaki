@@ -82,7 +82,7 @@ class MdnsService:
         if "." not in value:
             value = f"{value}.{self._config.mdns_default_domain}"
         if not ALIAS_NAME_RE.fullmatch(value):
-            raise ValueError("Alias must be a single hostname like deploy.local.")
+            raise ValueError("Alias must be a single hostname like niwaki.local.")
         return value
 
     @staticmethod

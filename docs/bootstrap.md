@@ -8,7 +8,7 @@
 これは alias が無くても使える標準導線として持つ。
 
 ### 2. Traefik alias
-- `http://deploy.local/`
+- `http://niwaki.local/`
 
 これは普段使いの導線として使う。
 

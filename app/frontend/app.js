@@ -702,7 +702,7 @@ function renderAliasesPage() {
       <form id="alias-form" class="alias-form">
         <label>
           Alias
-          <input class="input input-sm input-bordered w-full" id="alias-input" name="alias" placeholder="deploy.local" required />
+          <input class="input input-sm input-bordered w-full" id="alias-input" name="alias" placeholder="niwaki.local" required />
         </label>
         <label>
           Target IP
