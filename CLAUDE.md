@@ -17,9 +17,9 @@ Portainer の `/data/compose/<id>` のような内部作業ディレクトリに
 - Raspberry Pi OS / Debian 系ホストで動くこと
 - Docker Engine と Docker Compose v2 は導入済みであること
 - スタックは通常のディレクトリとしてホスト上に存在すること
-  - `/opt/rpi-infra/stacks/traefik/compose.yaml`
-  - `/opt/rpi-infra/stacks/portainer/compose.yaml`
-  - `/opt/rpi-infra/stacks/homepage/compose.yaml`
+  - `/opt/niwaki/stacks/traefik/compose.yaml`
+  - `/opt/niwaki/stacks/portainer/compose.yaml`
+  - `/opt/niwaki/stacks/homepage/compose.yaml`
 - ホストの bind mount は絶対パスのみを使うこと
 - Portainer 管理の内部パスに依存しないこと
 - 「見えないコピー」を内部データモデルの主軸にしないこと
@@ -114,7 +114,7 @@ deploy-ui/
 ホスト側の stack 構成例:
 
 ```text
-/opt/rpi-infra/stacks/
+/opt/niwaki/stacks/
   traefik/
     compose.yaml
   portainer/
@@ -229,11 +229,11 @@ ports:
 - bootstrap access と convenience access を分けて設計する
 
 ## 想定コマンドモデル
-stack が `cwd=/opt/rpi-infra/stacks/homepage`、`compose_file=compose.homepage.yaml` の場合:
+stack が `cwd=/opt/niwaki/stacks/homepage`、`compose_file=compose.homepage.yaml` の場合:
 
 ```bash
-git -C /opt/rpi-infra/stacks/homepage fetch --prune
-git -C /opt/rpi-infra/stacks/homepage pull --ff-only
+git -C /opt/niwaki/stacks/homepage fetch --prune
+git -C /opt/niwaki/stacks/homepage pull --ff-only
 docker compose -f compose.homepage.yaml config
 docker compose -f compose.homepage.yaml pull
 docker compose -f compose.homepage.yaml up -d

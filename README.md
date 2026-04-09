@@ -84,7 +84,7 @@ APP_BASE_PATH=/niwaki
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=change-me
 SETTINGS_DB_PATH=./data/niwaki.db
-STACK_ROOT=/opt/rpi-infra
+STACK_ROOT=/opt/niwaki
 MDNS_TARGET_IP=192.168.1.10
 ```
 

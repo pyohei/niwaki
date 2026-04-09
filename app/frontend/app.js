@@ -308,7 +308,7 @@ function stackFormMarkup(stack = null) {
       </label>
       <label class="settings-form-wide">
         CWD
-        <input class="input input-sm input-bordered w-full" id="stack-cwd-input" name="cwd" placeholder="/opt/rpi-infra" value="${escapeHtml(current.cwd || "")}" required />
+        <input class="input input-sm input-bordered w-full" id="stack-cwd-input" name="cwd" placeholder="/opt/niwaki" value="${escapeHtml(current.cwd || "")}" required />
       </label>
       <label class="settings-form-wide">
         Repo URL

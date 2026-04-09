@@ -21,7 +21,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me}
       ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
       SETTINGS_DB_PATH: ${SETTINGS_DB_PATH:-./data/niwaki.db}
-      STACK_ROOT: ${STACK_ROOT:-/opt/rpi-infra}
+      STACK_ROOT: ${STACK_ROOT:-/opt/niwaki}
       GIT_DEFAULT_BRANCH: ${GIT_DEFAULT_BRANCH:-main}
       GIT_PULL_FLAGS: ${GIT_PULL_FLAGS:---ff-only}
       COMMAND_LOG_RETENTION_DAYS: ${COMMAND_LOG_RETENTION_DAYS:-30}
@@ -39,7 +39,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./data:/app/data
-      - ${STACK_ROOT:-/opt/rpi-infra}:${STACK_ROOT:-/opt/rpi-infra}
+      - ${STACK_ROOT:-/opt/niwaki}:${STACK_ROOT:-/opt/niwaki}
     networks:
       - proxy
     labels:
