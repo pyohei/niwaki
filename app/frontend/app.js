@@ -95,6 +95,13 @@ function apiPath(path) {
   return appPath(`/api/${String(path).replace(/^\/+/, "")}`);
 }
 
+function isInternalAppUrl(url) {
+  if (url.origin !== window.location.origin) {
+    return false;
+  }
+  return parseRoute(url.pathname).name !== "not-found";
+}
+
 const statusClass = (status) => {
   if (!status) return "badge badge-ghost";
   if (["healthy", "success", "running"].includes(status)) return "badge badge-success badge-outline";
@@ -418,6 +425,13 @@ function renderShellState() {
     toggle.setAttribute("aria-pressed", state.sidebarCollapsed ? "true" : "false");
     toggle.hidden = hideSidebar;
   }
+}
+
+function renderShellOnly() {
+  state.route = parseRoute(window.location.pathname);
+  renderShellState();
+  renderMainNav();
+  renderStackSidebar();
 }
 
 function renderOverviewPage() {
@@ -975,6 +989,24 @@ async function loadCurrentPage() {
   }
 }
 
+async function navigateTo(url, { replace = false } = {}) {
+  const target = new URL(url, window.location.href);
+  const nextLocation = `${target.pathname}${target.search}${target.hash}`;
+  const currentLocation = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextLocation === currentLocation) {
+    return;
+  }
+  if (replace) {
+    window.history.replaceState({}, "", nextLocation);
+  } else {
+    window.history.pushState({}, "", nextLocation);
+  }
+  renderShellOnly();
+  await loadCurrentPage();
+  render();
+  window.scrollTo({ top: 0, behavior: "auto" });
+}
+
 document.getElementById("refresh-button").addEventListener("click", async () => {
   try {
     await loadCurrentPage();
@@ -988,6 +1020,42 @@ document.getElementById("sidebar-toggle").addEventListener("click", () => {
   state.sidebarCollapsed = !state.sidebarCollapsed;
   window.localStorage.setItem(SIDEBAR_STORAGE_KEY, state.sidebarCollapsed ? "1" : "0");
   renderShellState();
+});
+
+document.addEventListener("click", async (event) => {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    return;
+  }
+  const anchor = event.target.closest("a[href]");
+  if (!anchor) {
+    return;
+  }
+  if (anchor.target && anchor.target.toLowerCase() !== "_self") {
+    return;
+  }
+  if (anchor.hasAttribute("download")) {
+    return;
+  }
+  const target = new URL(anchor.href, window.location.href);
+  if (!isInternalAppUrl(target)) {
+    return;
+  }
+  event.preventDefault();
+  try {
+    await navigateTo(target.toString());
+  } catch (error) {
+    handleError(error);
+  }
+});
+
+window.addEventListener("popstate", async () => {
+  try {
+    renderShellOnly();
+    await loadCurrentPage();
+    render();
+  } catch (error) {
+    handleError(error);
+  }
 });
 
 loadCurrentPage()
