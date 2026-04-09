@@ -11,7 +11,7 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">Single Host Compose Deploy UI</p>
-          <h1 class="text-4xl font-semibold tracking-tight">Niwaki</h1>
+          <h1 class="text-3xl font-semibold tracking-tight">Niwaki</h1>
           <p class="lede">Git 管理された Compose stack をブラウザから操作します。</p>
         </div>
         <div class="access-cards" id="access-cards"></div>
@@ -65,13 +65,13 @@
           <form id="alias-form" class="alias-form">
             <label>
               Alias
-              <input class="input input-bordered w-full" id="alias-input" name="alias" placeholder="deploy.local" required />
+              <input class="input input-sm input-bordered w-full" id="alias-input" name="alias" placeholder="deploy.local" required />
             </label>
             <label>
               Target IP
-              <input class="input input-bordered w-full" id="target-ip-input" name="target_ip" placeholder="192.168.1.10" />
+              <input class="input input-sm input-bordered w-full" id="target-ip-input" name="target_ip" placeholder="192.168.1.10" />
             </label>
-            <button class="btn btn-primary self-end" type="submit">Create Alias</button>
+            <button class="btn btn-sm btn-primary self-end" type="submit">Create Alias</button>
           </form>
           <div id="alias-list" class="alias-list"></div>
         </section>
@@ -86,47 +86,47 @@
           <form id="stack-form" class="settings-form">
             <label>
               ID
-              <input class="input input-bordered w-full" id="stack-id-input" name="id" placeholder="homepage" required />
+              <input class="input input-sm input-bordered w-full" id="stack-id-input" name="id" placeholder="homepage" required />
             </label>
             <label>
               Name
-              <input class="input input-bordered w-full" id="stack-name-input" name="name" placeholder="Homepage" required />
+              <input class="input input-sm input-bordered w-full" id="stack-name-input" name="name" placeholder="Homepage" required />
             </label>
             <label class="settings-form-wide">
               CWD
-              <input class="input input-bordered w-full" id="stack-cwd-input" name="cwd" placeholder="/opt/rpi-infra" required />
+              <input class="input input-sm input-bordered w-full" id="stack-cwd-input" name="cwd" placeholder="/opt/rpi-infra" required />
             </label>
             <label class="settings-form-wide">
               Repo URL
-              <input class="input input-bordered w-full" id="stack-repo-url-input" name="repo_url" placeholder="https://github.com/example/repo.git" />
+              <input class="input input-sm input-bordered w-full" id="stack-repo-url-input" name="repo_url" placeholder="https://github.com/example/repo.git" />
             </label>
             <label>
               Compose File
-              <input class="input input-bordered w-full" id="stack-compose-input" name="compose_file" placeholder="compose.homepage.yaml" required />
+              <input class="input input-sm input-bordered w-full" id="stack-compose-input" name="compose_file" placeholder="compose.homepage.yaml" required />
             </label>
             <label>
               Branch
-              <input class="input input-bordered w-full" id="stack-branch-input" name="branch" placeholder="main" />
+              <input class="input input-sm input-bordered w-full" id="stack-branch-input" name="branch" placeholder="main" />
             </label>
             <label class="settings-form-wide">
               Tags
-              <input class="input input-bordered w-full" id="stack-tags-input" name="tags" placeholder="infra,dashboard" />
+              <input class="input input-sm input-bordered w-full" id="stack-tags-input" name="tags" placeholder="infra,dashboard" />
             </label>
             <label>
               Direct URL
-              <input class="input input-bordered w-full" id="stack-direct-url-input" name="direct_url" placeholder="http://localhost:3000/" />
+              <input class="input input-sm input-bordered w-full" id="stack-direct-url-input" name="direct_url" placeholder="http://localhost:3000/" />
             </label>
             <label>
               Traefik URL
-              <input class="input input-bordered w-full" id="stack-traefik-url-input" name="traefik_url" placeholder="http://homepage.local/" />
+              <input class="input input-sm input-bordered w-full" id="stack-traefik-url-input" name="traefik_url" placeholder="http://homepage.local/" />
             </label>
             <label class="settings-form-wide">
               Notes
-              <textarea class="textarea textarea-bordered min-h-24 w-full" id="stack-notes-input" name="notes" placeholder="optional notes"></textarea>
+              <textarea class="textarea textarea-sm textarea-bordered min-h-20 w-full" id="stack-notes-input" name="notes" placeholder="optional notes"></textarea>
             </label>
             <div class="inline-actions settings-form-wide">
-              <button class="btn btn-primary" type="submit">Save Stack</button>
-              <button class="btn btn-ghost" id="stack-form-clear" type="button">Clear</button>
+              <button class="btn btn-sm btn-primary" type="submit">Save Stack</button>
+              <button class="btn btn-sm btn-ghost" id="stack-form-clear" type="button">Clear</button>
             </div>
           </form>
           <div id="registry-list" class="alias-list"></div>
@@ -139,16 +139,16 @@
           <form id="credential-form" class="settings-form">
             <label>
               Username
-              <input class="input input-bordered w-full" id="credential-username-input" name="username" placeholder="git username" required />
+              <input class="input input-sm input-bordered w-full" id="credential-username-input" name="username" placeholder="git username" required />
             </label>
             <label>
               Password / Token
-              <input class="input input-bordered w-full" id="credential-secret-input" name="secret" placeholder="leave blank to keep existing value" type="password" />
+              <input class="input input-sm input-bordered w-full" id="credential-secret-input" name="secret" placeholder="leave blank to keep existing value" type="password" />
             </label>
             <div class="inline-actions settings-form-wide">
-              <button class="btn btn-primary" type="submit">Save Credential</button>
-              <button class="btn btn-ghost" id="credential-delete" type="button">Delete</button>
-              <button class="btn btn-ghost" id="credential-form-clear" type="button">Clear</button>
+              <button class="btn btn-sm btn-primary" type="submit">Save Credential</button>
+              <button class="btn btn-sm btn-ghost" id="credential-delete" type="button">Delete</button>
+              <button class="btn btn-sm btn-ghost" id="credential-form-clear" type="button">Clear</button>
             </div>
           </form>
           <div id="credential-status" class="alias-list"></div>
