@@ -51,6 +51,31 @@ def ensure_database(path: Path) -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS audit_records (
+                id TEXT PRIMARY KEY,
+                stack_id TEXT NOT NULL DEFAULT '',
+                started_at TEXT NOT NULL DEFAULT '',
+                completed_at TEXT NOT NULL DEFAULT '',
+                success INTEGER NOT NULL DEFAULT 0,
+                record_json TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_audit_records_started_at
+            ON audit_records(started_at DESC)
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_audit_records_stack_started_at
+            ON audit_records(stack_id, started_at DESC)
+            """
+        )
         columns = {
             row["name"]
             for row in connection.execute("PRAGMA table_info(stacks)").fetchall()

@@ -262,7 +262,7 @@ def _is_frontend_page(path: str) -> bool:
 
 def build_services(config: AppConfig) -> AppServices:
     auth = BasicAuthenticator(config.auth)
-    audit_store = AuditStore(config.audit_log_path, config.command_log_retention_days)
+    audit_store = AuditStore(config.settings_db_path, config.command_log_retention_days, config.audit_log_path)
     registry = StackRegistry(config.settings_db_path, config.stack_root)
     credential_store = GitCredentialStore(config.settings_db_path)
     compose_service = ComposeService(config.command_output_max_lines)
