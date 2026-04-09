@@ -69,7 +69,6 @@ class AppConfig:
     traefik_entrypoint: str
     traefik_docker_network: str
     auth: AuthConfig
-    stack_registry_path: Path
     settings_db_path: Path
     stack_root: Optional[Path]
     git_default_branch: str
@@ -118,7 +117,6 @@ def load_config() -> AppConfig:
             password=password,
             password_hash=password_hash,
         ),
-        stack_registry_path=_env_path("STACK_REGISTRY_PATH", "config/stacks.local.yaml", project_root),
         settings_db_path=_env_path("SETTINGS_DB_PATH", "data/niwaki.db", project_root),
         stack_root=Path(stack_root) if stack_root else None,
         git_default_branch=os.environ.get("GIT_DEFAULT_BRANCH", "main"),

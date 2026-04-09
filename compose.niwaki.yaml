@@ -20,7 +20,6 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me}
       ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
-      STACK_REGISTRY_PATH: ${STACK_REGISTRY_PATH:-config/stacks.local.yaml}
       SETTINGS_DB_PATH: ${SETTINGS_DB_PATH:-./data/niwaki.db}
       STACK_ROOT: ${STACK_ROOT:-/opt/rpi-infra}
       GIT_DEFAULT_BRANCH: ${GIT_DEFAULT_BRANCH:-main}
@@ -39,7 +38,6 @@ services:
       MDNS_TARGET_IP_LABEL: ${MDNS_TARGET_IP_LABEL:-io.mdns-admin.target-ip}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./config:/app/config
       - ./data:/app/data
       - ${STACK_ROOT:-/opt/rpi-infra}:${STACK_ROOT:-/opt/rpi-infra}
     networks:

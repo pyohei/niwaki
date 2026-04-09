@@ -65,7 +65,7 @@ stack ごとに最低限ほしい操作:
 ## 安全ルール
 - UI から任意コマンドを入力させない
 - 実行可能な操作は allowlist で固定する
-- config に登録された stack だけを操作対象にする
+- SQLite registry に登録された stack だけを操作対象にする
 - 実行前に stack path を解決し、妥当性を検証する
 - 設定された stack root の外側は拒否する
 - `git pull --ff-only` を基本にして、暗黙の merge commit を避ける
@@ -104,8 +104,6 @@ deploy-ui/
         logs/
         mdns/
       lib/
-  config/
-    stacks.example.yaml
   docs/
     architecture.md
     operations.md
@@ -126,29 +124,14 @@ deploy-ui/
 ```
 
 ## Stack Registry
-ディスク全体を雑に走査するのではなく、明示的な stack registry ファイルを使う。
-
-例:
-
-```yaml
-stacks:
-  - id: traefik
-    name: Traefik
-    cwd: /opt/rpi-infra/stacks/traefik
-    compose_file: compose.yaml
-    branch: main
-  - id: homepage
-    name: Homepage
-    cwd: /opt/rpi-infra/stacks/homepage
-    compose_file: compose.yaml
-    branch: main
-```
+ディスク全体を雑に走査するのではなく、SQLite に保持した明示的な stack registry を使う。
 
 ルール:
 - `cwd` は絶対パス
 - `compose_file` は stack ごとに明示する
 - `compose.yaml` はデフォルト値として扱う
 - 1 stack に複数 compose ファイルを持たせる場合でも、UI が扱う対象は registry で明示する
+- stack の追加・更新・削除は Web UI から行う
 
 ## UI 要件
 UI は Portainer や ECS に近い管理画面として設計する。
@@ -236,7 +219,7 @@ ports:
 ## 実装方針
 - 小さな backend から `git` と `docker compose` を叩く構成を優先する
 - Compose のロジックを再実装するより、server-side の command wrapper を使う
-- stack 登録はファイルベース config を優先する
+- stack 登録は SQLite registry を正本にする
 - ユーザー管理を大きく作り込まず、LAN 内向けの単一管理者認証を優先する
 - frontend は薄く保ち、ダッシュボードの肥大化を避ける
 - ログと失敗理由を追いやすくする

@@ -24,7 +24,7 @@
 - 初期実装では HTTP Basic 認証を使う
 
 ## Stack registry の初期案
-- `config/stacks.yaml` に明示的に定義する
+- SQLite registry に明示的に定義する
 - stack ごとに `cwd` と `compose_file` を持つ
 - ディスク全体の自動探索はしない
 

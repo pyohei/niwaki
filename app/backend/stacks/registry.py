@@ -11,12 +11,10 @@ class RegistryError(Exception):
 
 
 class StackRegistry:
-    def __init__(self, database_path: Path, seed_path: Path, stack_root: Optional[Path] = None):
+    def __init__(self, database_path: Path, stack_root: Optional[Path] = None):
         self._database_path = database_path
-        self._seed_path = seed_path
         self._stack_root = stack_root.resolve() if stack_root else None
         ensure_database(self._database_path)
-        self._seed_if_empty()
 
     def load(self) -> list[StackDefinition]:
         with connect_database(self._database_path) as connection:
@@ -89,42 +87,6 @@ class StackRegistry:
         if cursor.rowcount == 0:
             raise RegistryError(f"Unknown stack id: {stack_id}")
 
-    def _seed_if_empty(self) -> None:
-        with connect_database(self._database_path) as connection:
-            count = connection.execute("SELECT COUNT(*) AS count FROM stacks").fetchone()["count"]
-            if count:
-                return
-            if not self._seed_path.exists():
-                return
-            payload = self._load_seed_payload()
-            for item in payload.get("stacks", []):
-                stack = self._coerce_payload(item)
-                self._validate_path(stack.cwd)
-                connection.execute(
-                    """
-                    INSERT INTO stacks (id, name, cwd, repo_url, compose_file, branch, tags_json, direct_url, traefik_url, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        stack.id,
-                        stack.name,
-                        str(stack.cwd),
-                        stack.repo_url,
-                        stack.compose_file,
-                        stack.branch,
-                        json.dumps(stack.tags, ensure_ascii=False),
-                        stack.direct_url,
-                        stack.traefik_url,
-                        stack.notes,
-                    ),
-                )
-
-    def _load_seed_payload(self) -> dict:
-        suffix = self._seed_path.suffix.lower()
-        if suffix == ".json":
-            return json.loads(self._seed_path.read_text(encoding="utf-8"))
-        return self._parse_simple_yaml(self._seed_path.read_text(encoding="utf-8"))
-
     def _coerce_payload(self, payload: dict) -> StackDefinition:
         stack_id = str(payload.get("id") or "").strip()
         if not stack_id:
@@ -170,74 +132,3 @@ class StackRegistry:
             traefik_url=str(row["traefik_url"]),
             notes=str(row["notes"]),
         )
-
-    @staticmethod
-    def _parse_simple_yaml(text: str) -> dict:
-        lines = []
-        for raw_line in text.splitlines():
-            line = raw_line.rstrip()
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            lines.append(line)
-        if not lines or lines[0].strip() != "stacks:":
-            raise RegistryError("Registry YAML must start with 'stacks:'.")
-
-        items = []
-        index = 1
-        while index < len(lines):
-            line = lines[index]
-            indent = len(line) - len(line.lstrip(" "))
-            content = line.strip()
-            if indent != 2 or not content.startswith("- "):
-                raise RegistryError(f"Unexpected registry line: {line}")
-            item = {}
-            inline = content[2:].strip()
-            if inline:
-                key, value = StackRegistry._split_key_value(inline)
-                item[key] = StackRegistry._parse_scalar(value)
-            index += 1
-            while index < len(lines):
-                nested_line = lines[index]
-                nested_indent = len(nested_line) - len(nested_line.lstrip(" "))
-                nested_content = nested_line.strip()
-                if nested_indent <= 2:
-                    break
-                if nested_indent != 4:
-                    raise RegistryError(f"Unsupported indentation in registry: {nested_line}")
-                key, value = StackRegistry._split_key_value(nested_content)
-                if value == "":
-                    index += 1
-                    values = []
-                    while index < len(lines):
-                        value_line = lines[index]
-                        value_indent = len(value_line) - len(value_line.lstrip(" "))
-                        value_content = value_line.strip()
-                        if value_indent <= 4:
-                            break
-                        if value_indent != 6 or not value_content.startswith("- "):
-                            raise RegistryError(f"Unsupported nested list in registry: {value_line}")
-                        values.append(StackRegistry._parse_scalar(value_content[2:]))
-                        index += 1
-                    item[key] = values
-                    continue
-                item[key] = StackRegistry._parse_scalar(value)
-                index += 1
-            items.append(item)
-        return {"stacks": items}
-
-    @staticmethod
-    def _split_key_value(raw: str) -> tuple[str, str]:
-        if ":" not in raw:
-            raise RegistryError(f"Invalid key/value line: {raw}")
-        key, value = raw.split(":", 1)
-        return key.strip(), value.strip()
-
-    @staticmethod
-    def _parse_scalar(raw: str):
-        value = raw.strip()
-        if not value:
-            return ""
-        if value.startswith(("'", '"')) and value.endswith(("'", '"')):
-            return value[1:-1]
-        return value

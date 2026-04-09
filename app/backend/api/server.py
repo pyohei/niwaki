@@ -239,7 +239,6 @@ def _meta_payload(config: AppConfig) -> dict:
         "base_path": config.base_path,
         "alias_url": alias_url if alias_url != config.base_url else "",
         "fallback_url": fallback_url if fallback_url != config.base_url else "",
-        "registry_path": str(config.stack_registry_path),
         "settings_db_path": str(config.settings_db_path),
         "stack_root": str(config.stack_root) if config.stack_root else "",
         "mdns_enabled": config.mdns_enabled,
@@ -250,7 +249,7 @@ def _meta_payload(config: AppConfig) -> dict:
 def build_services(config: AppConfig) -> AppServices:
     auth = BasicAuthenticator(config.auth)
     audit_store = AuditStore(config.audit_log_path, config.command_log_retention_days)
-    registry = StackRegistry(config.settings_db_path, config.stack_registry_path, config.stack_root)
+    registry = StackRegistry(config.settings_db_path, config.stack_root)
     credential_store = GitCredentialStore(config.settings_db_path)
     compose_service = ComposeService(config.command_output_max_lines)
     git_service = GitService(config.git_pull_flags, credential_store)
