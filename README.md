@@ -1,7 +1,7 @@
 # Niwaki
 
 Niwaki は、単一ホストの Docker Compose スタックをブラウザから管理するための小さなデプロイ UI です。
-Git 管理された Compose ファイルを source of truth とし、stack 一覧、deploy、logs、mDNS alias 管理を一つの画面から扱えるようにします。
+Git 管理された Compose ファイルを source of truth とし、stack ごとの詳細ページ、deploy、logs、mDNS alias 管理を扱います。
 
 このリポジトリには、既存の `Traefik` / `mdns-admin` 構成も同居しています。
 当面は以下を並行して持ちます。
@@ -73,8 +73,8 @@ MDNS_TARGET_IP=192.168.1.10
 ### 2. stack registry を編集する
 
 stack registry は SQLite のみで保持します。
-起動直後は空なので、`Stack Registry` パネルから stack を追加してください。
-`repo_url` を入れておくと、`Stack Detail` から `Clone` を実行できます。
+起動直後は空なので、Overview ページの `Register Stack` から stack を追加してください。
+`repo_url` を入れておくと、stack 個別ページから `Clone` を実行できます。
 
 ### 3. Traefik 経由で起動する
 
@@ -87,12 +87,12 @@ docker compose -f compose.yaml -f compose.mdns-admin.yaml -f compose.niwaki.yaml
 - primary URL: `http://raspberrypi.local/niwaki/`
 - alias URL: `http://deploy.local/`
 
-起動後は UI 上で以下を管理できます。
+起動後の主なページは以下です。
 
-- `Stack Registry`: stack の追加 / 更新 / 削除
-- `Clone`: stack ごとの `repo_url` を使った `git clone`
-- `Git Credential`: システム共通の HTTPS credential 保存
-- `mDNS Aliases`: `mdns-admin` 互換ラベルでの alias 管理
+- `Overview`: stack 一覧、最近の deploy、stack 登録
+- `stacks/<id>`: stack ごとの状態、操作、logs、設定編集
+- `settings`: システム共通の Git credential
+- `aliases`: `mdns-admin` 互換ラベルでの mDNS alias 管理
 
 ### 4. 直接起動で確認する場合
 

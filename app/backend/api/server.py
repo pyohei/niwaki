@@ -112,7 +112,8 @@ class NiwakiHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/audit":
             limit = int(urllib.parse.parse_qs(parsed.query).get("limit", ["20"])[0])
-            json_response(self, {"items": self.server.services.audit_store.list_recent(limit=limit)})
+            stack_id = urllib.parse.parse_qs(parsed.query).get("stack_id", [""])[0].strip()
+            json_response(self, {"items": self.server.services.audit_store.list_recent(limit=limit, stack_id=stack_id or None)})
             return
         if path == "/api/mdns/aliases":
             if not self.server.services.config.mdns_enabled:
@@ -209,6 +210,10 @@ class NiwakiHandler(BaseHTTPRequestHandler):
             "/styles.css": ("styles.css", "text/css; charset=utf-8"),
         }
         if normalized not in file_map:
+            if _is_frontend_page(normalized):
+                filename, content_type = ("index.html", "text/html; charset=utf-8")
+                send_static_file(self, self.server.services.config.frontend_root / filename, content_type)
+                return
             raise ApiError(404, "Not Found")
         filename, content_type = file_map[normalized]
         send_static_file(self, self.server.services.config.frontend_root / filename, content_type)
@@ -244,6 +249,15 @@ def _meta_payload(config: AppConfig) -> dict:
         "mdns_enabled": config.mdns_enabled,
         "mdns_target_ip": config.mdns_target_ip,
     }
+
+
+def _is_frontend_page(path: str) -> bool:
+    if path in {"/settings", "/aliases", "/stacks"}:
+        return True
+    if not path.startswith("/stacks/"):
+        return False
+    remainder = path[len("/stacks/"):]
+    return bool(remainder) and "/" not in remainder
 
 
 def build_services(config: AppConfig) -> AppServices:
