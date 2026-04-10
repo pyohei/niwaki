@@ -20,7 +20,7 @@ class StackRegistry:
         with connect_database(self._database_path) as connection:
             rows = connection.execute(
                 """
-                SELECT id, name, cwd, repo_url, compose_file, branch, tags_json, direct_url, traefik_url, notes
+                SELECT id, name, cwd, repo_url, compose_file, override_file, branch, tags_json, direct_url, traefik_url, notes
                 FROM stacks
                 ORDER BY id
                 """
@@ -28,13 +28,15 @@ class StackRegistry:
         stacks = [self._row_to_stack(row) for row in rows]
         for stack in stacks:
             self._validate_path(stack.cwd)
+            if stack.override_file:
+                self._validate_path(Path(stack.override_file))
         return stacks
 
     def get(self, stack_id: str) -> StackDefinition:
         with connect_database(self._database_path) as connection:
             row = connection.execute(
                 """
-                SELECT id, name, cwd, repo_url, compose_file, branch, tags_json, direct_url, traefik_url, notes
+                SELECT id, name, cwd, repo_url, compose_file, override_file, branch, tags_json, direct_url, traefik_url, notes
                 FROM stacks
                 WHERE id = ?
                 """,
@@ -44,6 +46,8 @@ class StackRegistry:
             raise RegistryError(f"Unknown stack id: {stack_id}")
         stack = self._row_to_stack(row)
         self._validate_path(stack.cwd)
+        if stack.override_file:
+            self._validate_path(Path(stack.override_file))
         return stack
 
     def upsert(self, payload: dict) -> StackDefinition:
@@ -52,13 +56,14 @@ class StackRegistry:
         with connect_database(self._database_path) as connection:
             connection.execute(
                 """
-                INSERT INTO stacks (id, name, cwd, repo_url, compose_file, branch, tags_json, direct_url, traefik_url, notes, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                INSERT INTO stacks (id, name, cwd, repo_url, compose_file, override_file, branch, tags_json, direct_url, traefik_url, notes, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
                     cwd = excluded.cwd,
                     repo_url = excluded.repo_url,
                     compose_file = excluded.compose_file,
+                    override_file = excluded.override_file,
                     branch = excluded.branch,
                     tags_json = excluded.tags_json,
                     direct_url = excluded.direct_url,
@@ -72,6 +77,7 @@ class StackRegistry:
                     str(stack.cwd),
                     stack.repo_url,
                     stack.compose_file,
+                    stack.override_file,
                     stack.branch,
                     json.dumps(stack.tags, ensure_ascii=False),
                     stack.direct_url,
@@ -94,23 +100,36 @@ class StackRegistry:
         cwd_raw = str(payload.get("cwd") or "").strip()
         if not cwd_raw:
             raise RegistryError("cwd is required.")
+        resolved_cwd = Path(cwd_raw).expanduser().resolve()
         compose_file = str(payload.get("compose_file") or "compose.yaml").strip() or "compose.yaml"
+        override_file = self._coerce_override_file(str(payload.get("override_file") or "").strip(), resolved_cwd)
         tags = payload.get("tags") or []
         if isinstance(tags, str):
             tags = [part.strip() for part in tags.split(",") if part.strip()]
-        resolved_cwd = Path(cwd_raw).expanduser().resolve()
+        if override_file:
+            self._validate_path(Path(override_file))
         return StackDefinition(
             id=stack_id,
             name=str(payload.get("name") or stack_id).strip() or stack_id,
             cwd=resolved_cwd,
             repo_url=str(payload.get("repo_url") or "").strip(),
             compose_file=compose_file,
+            override_file=override_file,
             branch=str(payload.get("branch") or "").strip(),
             tags=[str(tag).strip() for tag in tags if str(tag).strip()],
             direct_url=str(payload.get("direct_url") or "").strip(),
             traefik_url=str(payload.get("traefik_url") or "").strip(),
             notes=str(payload.get("notes") or "").strip(),
         )
+
+    @staticmethod
+    def _coerce_override_file(value: str, cwd: Path) -> str:
+        if not value:
+            return ""
+        path = Path(value).expanduser()
+        if not path.is_absolute():
+            path = cwd.expanduser().resolve() / path
+        return str(path.resolve())
 
     def _validate_path(self, cwd: Path) -> None:
         if self._stack_root and self._stack_root not in cwd.parents and cwd != self._stack_root:
@@ -126,6 +145,7 @@ class StackRegistry:
             cwd=Path(str(row["cwd"])),
             repo_url=str(row["repo_url"]),
             compose_file=str(row["compose_file"]),
+            override_file=str(row["override_file"] or ""),
             branch=str(row["branch"]),
             tags=[str(tag) for tag in tags],
             direct_url=str(row["direct_url"]),

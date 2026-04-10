@@ -39,5 +39,8 @@ class ComposeService:
         return [json.loads(line) for line in raw.splitlines() if line.strip()]
 
     def _run(self, stack: StackDefinition, *args: str) -> CommandResult:
-        command = ["docker", "compose", "-f", stack.compose_file, *args]
+        command = ["docker", "compose"]
+        for compose_file in stack.compose_files():
+            command.extend(["-f", compose_file])
+        command.extend(args)
         return run_command(command, cwd=str(stack.cwd))

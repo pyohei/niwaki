@@ -39,6 +39,7 @@ class SettingsService:
             "cwd": str(stack.cwd),
             "repo_url": stack.repo_url,
             "compose_file": stack.compose_file,
+            "override_file": stack.override_file,
             "branch": stack.branch,
             "tags": stack.tags,
             "direct_url": stack.direct_url,

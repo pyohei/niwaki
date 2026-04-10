@@ -167,6 +167,13 @@ function formatDate(value) {
   }
 }
 
+function composeFilesSummary(stack) {
+  if (!stack) {
+    return "-";
+  }
+  return stack.override_file ? `${stack.compose_file} + ${stack.override_file}` : stack.compose_file;
+}
+
 function stackRuntimeById(stackId) {
   return state.stacks.find((stack) => stack.id === stackId) || null;
 }
@@ -253,7 +260,7 @@ function registryListMarkup(showOpenLink = true) {
             <strong class="text-sm">${escapeHtml(stack.name)}</strong>
             <span class="badge badge-neutral badge-outline">${escapeHtml(stack.id)}</span>
           </header>
-          <p class="muted">${escapeHtml(`${stack.cwd} · ${stack.compose_file}`)}</p>
+          <p class="muted">${escapeHtml(`${stack.cwd} · ${composeFilesSummary(stack)}`)}</p>
           <p class="muted">${escapeHtml(stack.repo_url || "-")}</p>
           <p class="muted">${escapeHtml((stack.tags || []).join(", ") || "-")}</p>
           ${
@@ -269,7 +276,6 @@ function registryListMarkup(showOpenLink = true) {
 
 function stackLinksMarkup(stack) {
   const links = [
-    stack?.traefik_url ? ["Traefik URL", stack.traefik_url] : null,
     stack?.direct_url ? ["Direct URL", stack.direct_url] : null,
     stack?.repo_url ? ["Repo", stack.repo_url] : null,
   ].filter(Boolean);
@@ -318,6 +324,10 @@ function stackFormMarkup(stack = null) {
         Compose File
         <input class="input input-sm input-bordered w-full" id="stack-compose-input" name="compose_file" placeholder="compose.homepage.yaml" value="${escapeHtml(current.compose_file || "compose.yaml")}" required />
       </label>
+      <label class="settings-form-wide">
+        Override File
+        <input class="input input-sm input-bordered w-full" id="stack-override-input" name="override_file" placeholder="/opt/niwaki/overrides/homepage.yaml" value="${escapeHtml(current.override_file || "")}" />
+      </label>
       <label>
         Branch
         <input class="input input-sm input-bordered w-full" id="stack-branch-input" name="branch" placeholder="main" value="${escapeHtml(current.branch || "")}" />
@@ -329,10 +339,6 @@ function stackFormMarkup(stack = null) {
       <label>
         Direct URL
         <input class="input input-sm input-bordered w-full" id="stack-direct-url-input" name="direct_url" placeholder="http://localhost:3000/" value="${escapeHtml(current.direct_url || "")}" />
-      </label>
-      <label>
-        Traefik URL
-        <input class="input input-sm input-bordered w-full" id="stack-traefik-url-input" name="traefik_url" placeholder="http://homepage.local/" value="${escapeHtml(current.traefik_url || "")}" />
       </label>
       <label class="settings-form-wide">
         Notes
@@ -355,8 +361,6 @@ function renderAccessCards() {
   }
   const cards = [
     ["Primary", state.meta.base_url],
-    state.meta.alias_url ? ["Alias", state.meta.alias_url] : null,
-    state.meta.fallback_url ? ["Fallback", state.meta.fallback_url] : null,
   ].filter(Boolean);
 
   root.innerHTML = cards
@@ -531,6 +535,7 @@ function renderStackPage() {
           <span>CWD: <code>${escapeHtml(state.detail.cwd)}</code></span>
           <span>Repo: <code>${escapeHtml(state.detail.repo_url || "-")}</code></span>
           <span>Compose: <code>${escapeHtml(state.detail.compose_file)}</code></span>
+          <span>Override: <code>${escapeHtml(state.detail.override_file || "-")}</code></span>
           <span>Git: ${escapeHtml(gitSummary(state.detail))}</span>
           <span>Registry Tags: ${escapeHtml((state.detail.tags || []).join(", ") || "-")}</span>
           <span>Last Action: ${escapeHtml(state.detail.last_action ? `${state.detail.last_action.action} (${state.detail.last_action.success ? "success" : "failed"})` : "none")}</span>
@@ -654,8 +659,6 @@ function renderSettingsPage() {
         </div>
         <div class="detail-meta">
           <span>Primary URL: <code>${escapeHtml(state.meta?.base_url || "-")}</code></span>
-          <span>Alias URL: <code>${escapeHtml(state.meta?.alias_url || "-")}</code></span>
-          <span>Fallback URL: <code>${escapeHtml(state.meta?.fallback_url || "-")}</code></span>
           <span>Settings DB: <code>${escapeHtml(state.meta?.settings_db_path || "-")}</code></span>
           <span>Stack Root: <code>${escapeHtml(state.meta?.stack_root || "-")}</code></span>
           <span>mDNS Enabled: <code>${escapeHtml(state.meta?.mdns_enabled ? "true" : "false")}</code></span>
@@ -789,10 +792,10 @@ function stackFormPayload() {
     cwd: document.getElementById("stack-cwd-input").value,
     repo_url: document.getElementById("stack-repo-url-input").value,
     compose_file: document.getElementById("stack-compose-input").value,
+    override_file: document.getElementById("stack-override-input").value,
     branch: document.getElementById("stack-branch-input").value,
     tags: document.getElementById("stack-tags-input").value,
     direct_url: document.getElementById("stack-direct-url-input").value,
-    traefik_url: document.getElementById("stack-traefik-url-input").value,
     notes: document.getElementById("stack-notes-input").value,
   };
 }
