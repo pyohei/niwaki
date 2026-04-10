@@ -1,25 +1,37 @@
 services:
-  traefik:
-    image: traefik:v3.6
-    container_name: traefik
+  niwaki:
+    build:
+      context: ./app
+    image: niwaki:local
+    container_name: niwaki
     restart: unless-stopped
-    command:
-      - --api.dashboard=true
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:80
     ports:
-      - "80:80"
+      - "8787:8787"
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8787
+      APP_BASE_URL: ${APP_BASE_URL:-http://raspberrypi.local:8787/}
+      APP_BASE_PATH: ${APP_BASE_PATH:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+      SETTINGS_DB_PATH: ${SETTINGS_DB_PATH:-./data/niwaki.db}
+      STACK_ROOT: ${STACK_ROOT:-/opt/niwaki}
+      GIT_DEFAULT_BRANCH: ${GIT_DEFAULT_BRANCH:-main}
+      GIT_PULL_FLAGS: ${GIT_PULL_FLAGS:---ff-only}
+      COMMAND_LOG_RETENTION_DAYS: ${COMMAND_LOG_RETENTION_DAYS:-30}
+      COMMAND_OUTPUT_MAX_LINES: ${COMMAND_OUTPUT_MAX_LINES:-200}
+      AUDIT_LOG_PATH: ${AUDIT_LOG_PATH:-./data/command-history.jsonl}
+      DOCKER_SOCKET_PATH: /var/run/docker.sock
+      DOCKER_API_VERSION: ${DOCKER_API_VERSION:-v1.41}
+      MDNS_ENABLED: ${MDNS_ENABLED:-true}
+      MDNS_DEFAULT_DOMAIN: ${MDNS_DEFAULT_DOMAIN:-local}
+      MDNS_PUBLISH_IMAGE: ${MDNS_PUBLISH_IMAGE:-niwaki:local}
+      MDNS_TARGET_IP: ${MDNS_TARGET_IP:-}
+      MDNS_MANAGED_LABEL: ${MDNS_MANAGED_LABEL:-io.mdns-admin.managed}
+      MDNS_ALIAS_LABEL: ${MDNS_ALIAS_LABEL:-io.mdns-admin.alias}
+      MDNS_TARGET_IP_LABEL: ${MDNS_TARGET_IP_LABEL:-io.mdns-admin.target-ip}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - proxy
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DASHBOARD_HOST:-traefik.local}`)
-      - traefik.http.routers.traefik.entrypoints=web
-      - traefik.http.routers.traefik.service=api@internal
-
-networks:
-  proxy:
-    name: proxy
+      - ./data:/app/data
+      - ${STACK_ROOT:-/opt/niwaki}:${STACK_ROOT:-/opt/niwaki}

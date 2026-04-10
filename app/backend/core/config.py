@@ -42,17 +42,6 @@ def _normalize_base_path(value: str) -> str:
     return normalized
 
 
-def _join_http_url(host: str, *, port: Optional[int] = None, path: str = "") -> str:
-    if not host:
-        return ""
-    base = f"http://{host}"
-    if port and port != 80:
-        base = f"{base}:{port}"
-    if path:
-        return f"{base}{path}/"
-    return f"{base}/"
-
-
 @dataclass(frozen=True)
 class AppConfig:
     project_root: Path
@@ -61,13 +50,6 @@ class AppConfig:
     port: int
     base_url: str
     base_path: str
-    bootstrap_host: str
-    bootstrap_port: int
-    traefik_enabled: bool
-    traefik_host: str
-    traefik_fallback_host: str
-    traefik_entrypoint: str
-    traefik_docker_network: str
     auth: AuthConfig
     settings_db_path: Path
     stack_root: Optional[Path]
@@ -105,13 +87,6 @@ def load_config() -> AppConfig:
         port=int(os.environ.get("APP_PORT", "8787")),
         base_url=os.environ.get("APP_BASE_URL", "http://raspberrypi.local:8787"),
         base_path=_normalize_base_path(os.environ.get("APP_BASE_PATH", "")),
-        bootstrap_host=os.environ.get("BOOTSTRAP_HOST", "raspberrypi.local"),
-        bootstrap_port=int(os.environ.get("BOOTSTRAP_PORT", "8787")),
-        traefik_enabled=_env_bool("TRAEFIK_ENABLED", True),
-        traefik_host=os.environ.get("TRAEFIK_HOST", "niwaki.local"),
-        traefik_fallback_host=os.environ.get("TRAEFIK_FALLBACK_HOST", "raspberrypi.local"),
-        traefik_entrypoint=os.environ.get("TRAEFIK_ENTRYPOINT", "web"),
-        traefik_docker_network=os.environ.get("TRAEFIK_DOCKER_NETWORK", "proxy"),
         auth=AuthConfig(
             username=os.environ.get("ADMIN_USERNAME", "admin"),
             password=password,

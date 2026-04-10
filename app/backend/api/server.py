@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from ..audit.store import AuditStore
 from ..auth.basic import BasicAuthenticator
-from ..core.config import AppConfig, _join_http_url, load_config
+from ..core.config import AppConfig, load_config
 from ..core.http import ApiError, json_response, read_json_body, send_static_file
 from ..docker.compose import ComposeService
 from ..docker.socket_client import DockerAPIClient
@@ -234,16 +234,10 @@ class NiwakiHandler(BaseHTTPRequestHandler):
 
 
 def _meta_payload(config: AppConfig) -> dict:
-    fallback_url = (
-        _join_http_url(config.traefik_fallback_host, path=config.base_path) if config.traefik_enabled else ""
-    )
-    alias_url = _join_http_url(config.traefik_host) if config.traefik_enabled else ""
     return {
         "name": "Niwaki",
         "base_url": config.base_url,
         "base_path": config.base_path,
-        "alias_url": alias_url if alias_url != config.base_url else "",
-        "fallback_url": fallback_url if fallback_url != config.base_url else "",
         "settings_db_path": str(config.settings_db_path),
         "stack_root": str(config.stack_root) if config.stack_root else "",
         "mdns_enabled": config.mdns_enabled,
