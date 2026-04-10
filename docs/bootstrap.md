@@ -1,22 +1,22 @@
 # 初期設定メモ
 
-## 推奨する最初の導線
+## 推奨する導線
 
-### 1. Traefik primary
-- `http://raspberrypi.local/niwaki/`
+### 1. 直接アクセス
+- `http://raspberrypi.local:8787/`
+- `http://<raspberry-pi-ip>:8787/`
 
-これは alias が無くても使える標準導線として持つ。
+これはこの repo の標準導線として持つ。
 
-### 2. Traefik alias
-- `http://niwaki.local/`
+### 2. reverse proxy 配下の URL
+- `https://your-proxy.example/niwaki/`
 
-これは普段使いの導線として使う。
+これは外部の reverse proxy で別途提供する導線で、この repo の責務には含めない。
 
-### 3. 直接アクセス
-- `http://raspberrypi.local:8787`
-- `http://<raspberry-pi-ip>:8787`
+### 3. mDNS alias
+- `niwaki.local`
 
-これは必要なときだけ使う確認用導線とする。通常の compose 起動では前提にしない。
+これは convenience 機能であり、単独では port を表せないので reverse proxy か別の公開手段と組み合わせる。
 
 ## 認証の初期案
 - 単一管理者アカウントのみ

@@ -5,6 +5,7 @@
 
 このリポジトリは、ホスト上に通常のファイルとして置かれている Docker Compose スタックを、ブラウザから操作するためのものとする。
 Portainer の `/data/compose/<id>` のような内部作業ディレクトリには依存せず、Git 管理された Compose ファイルを正本として扱う。
+reverse proxy はこの repo の責務に含めない。
 
 目指す方向性は以下。
 - 単一ホスト専用
@@ -17,9 +18,9 @@ Portainer の `/data/compose/<id>` のような内部作業ディレクトリに
 - Raspberry Pi OS / Debian 系ホストで動くこと
 - Docker Engine と Docker Compose v2 は導入済みであること
 - スタックは通常のディレクトリとしてホスト上に存在すること
-  - `/opt/niwaki/stacks/traefik/compose.yaml`
   - `/opt/niwaki/stacks/portainer/compose.yaml`
   - `/opt/niwaki/stacks/homepage/compose.yaml`
+  - `/opt/niwaki/stacks/gitea/compose.yaml`
 - ホストの bind mount は絶対パスのみを使うこと
 - Portainer 管理の内部パスに依存しないこと
 - 「見えないコピー」を内部データモデルの主軸にしないこと
@@ -30,19 +31,20 @@ Portainer の `/data/compose/<id>` のような内部作業ディレクトリに
 - ブラウザからの任意シェル実行
 - 汎用ファイルマネージャ
 - 既知の Compose スタックに属さないコンテナの管理
+- reverse proxy の管理
 - Git を source of truth から外すこと
 
 ## 基本方針
 - 1 stack = 1 directory = 1 Compose project
 - Compose ファイル名は stack ごとに指定可能にする
-- `compose.yaml` は標準値として扱うが、`compose.traefik.yaml` や `compose.portainer.yaml` のような命名も許可する
+- `compose.yaml` は標準値として扱うが、`compose.portainer.yaml` のような命名も許可する
 - UI はホスト上の確定的な操作を薄く包むだけにする
 - UI の見た目と操作感は ECS / Portainer に近いものを目指す
-- 初回起動時でも必ず入れる bootstrap 導線を持つ
 - すべての実行は明示的な working directory を持つ
 - 実行した command、cwd、exit code、直近の output を表示できるようにする
 - 危険な自動探索より、明示的な stack 登録を優先する
 - Git や Docker から導出できる情報は、不要に DB へ複製しない
+- アプリ自身の到達 URL は `APP_BASE_URL` を唯一の正本とする
 
 ## 必要な機能
 stack ごとに最低限ほしい操作:
@@ -92,20 +94,10 @@ deploy-ui/
       features/
         deploys/
         logs/
-        health/
         mdns/
+        settings/
     frontend/
-      app/
-      components/
-      features/
-        stacks/
-        stack-detail/
-        deploy-history/
-        logs/
-        mdns/
-      lib/
   docs/
-    architecture.md
     operations.md
     ui.md
     mdns.md
@@ -115,11 +107,11 @@ deploy-ui/
 
 ```text
 /opt/niwaki/stacks/
-  traefik/
-    compose.yaml
   portainer/
     compose.yaml
   homepage/
+    compose.yaml
+  gitea/
     compose.yaml
 ```
 
@@ -160,46 +152,23 @@ UI は Portainer や ECS に近い管理画面として設計する。
 - 直近ログ
 - 最後に実行した command と結果
 - `pull`, `up -d`, `restart`, `down` などの操作ボタン
+- stack ごとの補助 URL
 
-## Traefik / mDNS / 直接アクセスの切り分け
-このアプリは、mDNS alias が未設定でも必ず到達できるように設計する。
+## アクセス導線
+このアプリ自身の標準導線は direct access とする。
 
-優先する導線は 3 つ:
-- bootstrap 導線: `http://raspberrypi.local:8787` のような direct port
-- 通常導線: `http://deploy.local` のような Traefik + mDNS alias
-- 予備導線: `http://raspberrypi.local` を Traefik router に追加する運用
+- 標準導線: `http://raspberrypi.local:8787/`
+- 補助導線: `http://<raspberry-pi-ip>:8787/`
+- 外部公開 URL: 必要なら別の reverse proxy で作る
 
 考え方:
-- `deploy-ui` は単体で到達可能にする
-- `mdns-admin` は補助機能であり、起動条件にしない
-- `mdns-admin` が壊れていても `deploy-ui` に入れること
-- direct port は初回セットアップと障害対応の両方で使う
-
-依存関係:
-- `deploy-ui` は `mdns-admin` に依存しない
-- `mdns-admin` は `deploy-ui` から呼べる optional feature として扱う
-- Traefik 経由の URL は便利導線であり、唯一の導線にしない
-
-Traefik router 例:
-
-```yaml
-labels:
-  - "traefik.enable=true"
-  - "traefik.docker.network=proxy"
-  - "traefik.http.routers.deploy-ui.rule=Host(`deploy.local`) || Host(`raspberrypi.local`)"
-  - "traefik.http.routers.deploy-ui.entrypoints=web"
-  - "traefik.http.services.deploy-ui.loadbalancer.server.port=8080"
-```
-
-同時に direct port も残す例:
-
-```yaml
-ports:
-  - "8787:8080"
-```
+- Niwaki は単体で到達可能にする
+- reverse proxy が無くても管理 UI に入れること
+- `APP_BASE_URL` は実際にユーザーが開く URL に合わせて設定する
+- `APP_BASE_PATH` は外部 proxy が path prefix を付ける場合だけ使う
 
 ## mdns-admin から取り込みたい設計
-`/Users/shohei/Dev/portainer/mdns-admin` から、以下の性質を引き継ぐ。
+旧 `mdns-admin` 実装から、以下の性質を引き継ぐ。
 
 - 管理対象をラベルで限定する設計
 - Docker API を叩く処理を専用クラスへ分離する設計
@@ -209,7 +178,7 @@ ports:
 
 今回の deploy UI では、これを以下に読み替える。
 
-- stack 管理対象は registry と management label の両方で境界を持つ
+- stack 管理対象は registry で境界を持つ
 - Docker 操作は `docker/` モジュールに閉じ込める
 - Git 操作は `git/` モジュールに閉じ込める
 - feature 単位の API ハンドラを `features/` 配下に分ける
@@ -226,7 +195,6 @@ ports:
 - 気の利いた抽象化より、地味でも壊れにくいホスト操作を選ぶ
 - ただし実装ファイルは 1 箇所に寄せず、責務ごとに分割する
 - mDNS 管理は deploy UI のサブ機能として自然に追加できる構成にする
-- bootstrap access と convenience access を分けて設計する
 
 ## 想定コマンドモデル
 stack が `cwd=/opt/niwaki/stacks/homepage`、`compose_file=compose.homepage.yaml` の場合:
@@ -251,7 +219,7 @@ UI では以下を簡単にしたい。
 - 失敗時に command output を追える
 - いま何の Git revision が入っているかを分かるようにする
 - mDNS alias の追加・削除・一覧確認ができる
-- 現在の到達 URL と bootstrap URL を確認できる
+- 現在の primary URL を確認できる
 
 逆に、以下は優先しない。
 - マルチテナント運用
@@ -265,7 +233,7 @@ UI では以下を簡単にしたい。
 - ファイル構成と設定は単純に保つ
 - host setup と運用手順の文書を含める
 - 隠れた state を導入する場合は明記する
-- Portainer がなくても成立するようにする
+- reverse proxy を内包前提に戻さない
 
 ## 補足
 - stack ファイルの正本は Git

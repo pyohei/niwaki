@@ -28,7 +28,7 @@ UI は ECS や Portainer に近い、運用向けの管理画面を目指す。
 - deploy 操作
 - pull / up / restart / down ボタン
 - primary URL
-- alias URL
+- optional URL
 
 ### 3. 実行履歴
 - 実行した操作種別
@@ -47,9 +47,9 @@ UI は ECS や Portainer に近い、運用向けの管理画面を目指す。
 
 ### 5. アクセス導線の案内
 - primary URL の表示
-- alias URL の表示
+- optional URL の表示
 - mDNS alias 未設定時の案内
-- `raspberrypi.local` と alias の違いの説明
+- 直アクセスと外部公開 URL の違いの説明
 
 ## UX の方針
 - 状態は badge や color で即時に判別できるようにする
@@ -57,4 +57,4 @@ UI は ECS や Portainer に近い、運用向けの管理画面を目指す。
 - command output は詳細画面で折りたたみ表示できるようにする
 - ログは「十分便利」だが「重すぎない」範囲に留める
 - ブラウザから任意シェルは実行させない
-- 初回セットアップで迷わないよう、`raspberrypi.local/niwaki/` を常に見せる
+- 初回セットアップで迷わないよう、`raspberrypi.local:8787` を常に見せる

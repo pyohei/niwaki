@@ -18,12 +18,11 @@
 - 一覧・作成・削除の UI を stack 管理とは別タブで持つ
 - 既存 alias との衝突検知や入力検証を行う
 - alias が無くても deploy UI へ到達できる前提で設計する
-- alias は bootstrap ではなく convenience 機能として扱う
+- alias は URL そのものではなく、必要なら外部の reverse proxy や名前解決と組み合わせる convenience 機能として扱う
 
 ## 到達性の考え方
-- `raspberrypi.local/niwaki/` は alias 不要の primary URL
-- `niwaki.local` のような alias は、設定後の常用 URL
-- `raspberrypi.local:PORT` は必要時だけ使う直接確認用 URL
+- `raspberrypi.local:8787` は alias 不要の primary URL
+- `niwaki.local` のような alias は、別の公開経路があるなら常用 URL にできる
 - mDNS alias が未設定でも管理 UI は使えるべき
 
 ## 実装イメージ
