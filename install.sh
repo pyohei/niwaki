@@ -273,8 +273,7 @@ write_env_file_if_missing() {
 
   run_as_target_user mkdir -p "$install_dir/data" "$stack_root"
 
-  PRIMARY_URL="http://${primary_fqdn}/niwaki/"
-  MDNS_URL="http://${primary_fqdn}/mdns/"
+  PRIMARY_URL="http://${primary_fqdn}:8787/"
   GENERATED_ADMIN_PASSWORD=""
   DETECTED_TARGET_IP="$primary_ip"
 
@@ -283,32 +282,19 @@ write_env_file_if_missing() {
     PRIMARY_URL="$(read_env_value "$env_path" APP_BASE_URL || true)"
     DETECTED_TARGET_IP="$(read_env_value "$env_path" MDNS_TARGET_IP || true)"
     if [ -z "$PRIMARY_URL" ]; then
-      PRIMARY_URL="http://${primary_fqdn}/niwaki/"
-    fi
-    if [ -n "$(read_env_value "$env_path" BOOTSTRAP_HOST || true)" ]; then
-      MDNS_URL="http://$(read_env_value "$env_path" BOOTSTRAP_HOST || true)/mdns/"
+      PRIMARY_URL="http://${primary_fqdn}:8787/"
     fi
     return
   fi
 
   env_tmp="$(mktemp)"
   cat >"$env_tmp" <<EOF
-TRAEFIK_DASHBOARD_HOST=traefik.local
 MDNS_TARGET_IP=${primary_ip}
 
 APP_HOST=0.0.0.0
 APP_PORT=8787
 APP_BASE_URL=${PRIMARY_URL}
-APP_BASE_PATH=/niwaki
-
-BOOTSTRAP_HOST=${primary_fqdn}
-BOOTSTRAP_PORT=80
-
-TRAEFIK_ENABLED=true
-TRAEFIK_HOST=niwaki.local
-TRAEFIK_FALLBACK_HOST=${primary_fqdn}
-TRAEFIK_ENTRYPOINT=web
-TRAEFIK_DOCKER_NETWORK=proxy
+APP_BASE_PATH=
 
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=${admin_password}
@@ -326,9 +312,9 @@ start_services() {
   local install_dir
 
   install_dir="$1"
-  log "Starting Traefik and Niwaki..."
+  log "Starting Niwaki..."
   cd "$install_dir"
-  docker_cli compose -f compose.yaml -f compose.niwaki.yaml up -d --build
+  docker_cli compose up -d --build
 }
 
 main() {
@@ -352,7 +338,6 @@ main() {
   log "Setup completed."
   printf 'Install dir: %s\n' "$install_dir"
   printf 'Primary URL: %s\n' "$PRIMARY_URL"
-  printf 'mDNS Admin: %s\n' "$MDNS_URL"
   printf 'Admin user: admin\n'
   if [ -n "$GENERATED_ADMIN_PASSWORD" ]; then
     printf 'Generated admin password: %s\n' "$GENERATED_ADMIN_PASSWORD"
