@@ -262,7 +262,6 @@ function registryListMarkup(showOpenLink = true) {
           </header>
           <p class="muted">${escapeHtml(`${stack.cwd} · ${composeFilesSummary(stack)}`)}</p>
           <p class="muted">${escapeHtml(stack.repo_url || "-")}</p>
-          <p class="muted">${escapeHtml((stack.tags || []).join(", ") || "-")}</p>
           ${
             showOpenLink
               ? `<div class="inline-actions"><a class="btn btn-ghost btn-xs" href="${escapeHtml(routePath({ name: "stack", stackId: stack.id }))}">Open</a></div>`
@@ -276,7 +275,6 @@ function registryListMarkup(showOpenLink = true) {
 
 function stackLinksMarkup(stack) {
   const links = [
-    stack?.direct_url ? ["Direct URL", stack.direct_url] : null,
     stack?.repo_url ? ["Repo", stack.repo_url] : null,
   ].filter(Boolean);
 
@@ -304,17 +302,10 @@ function stackFormMarkup(stack = null) {
   const editing = Boolean(stack);
   return `
     <form id="stack-form" class="settings-form">
-      <label>
-        ID
-        <input class="input input-sm input-bordered w-full" id="stack-id-input" name="id" placeholder="homepage" value="${escapeHtml(current.id || "")}" ${editing ? "readonly" : ""} required />
-      </label>
+      <input id="stack-id-input" name="id" type="hidden" value="${escapeHtml(current.id || "")}" />
       <label>
         Name
         <input class="input input-sm input-bordered w-full" id="stack-name-input" name="name" placeholder="Homepage" value="${escapeHtml(current.name || "")}" required />
-      </label>
-      <label class="settings-form-wide">
-        CWD
-        <input class="input input-sm input-bordered w-full" id="stack-cwd-input" name="cwd" placeholder="/opt/niwaki" value="${escapeHtml(current.cwd || "")}" required />
       </label>
       <label class="settings-form-wide">
         Repo URL
@@ -324,22 +315,25 @@ function stackFormMarkup(stack = null) {
         Compose File
         <input class="input input-sm input-bordered w-full" id="stack-compose-input" name="compose_file" placeholder="compose.homepage.yaml" value="${escapeHtml(current.compose_file || "compose.yaml")}" required />
       </label>
-      <label class="settings-form-wide">
-        Override File
-        <input class="input input-sm input-bordered w-full" id="stack-override-input" name="override_file" placeholder="/opt/niwaki/overrides/homepage.yaml" value="${escapeHtml(current.override_file || "")}" />
-      </label>
       <label>
         Branch
         <input class="input input-sm input-bordered w-full" id="stack-branch-input" name="branch" placeholder="main" value="${escapeHtml(current.branch || "")}" />
       </label>
-      <label class="settings-form-wide">
-        Tags
-        <input class="input input-sm input-bordered w-full" id="stack-tags-input" name="tags" placeholder="infra,dashboard" value="${escapeHtml((current.tags || []).join(", "))}" />
-      </label>
-      <label>
-        Direct URL
-        <input class="input input-sm input-bordered w-full" id="stack-direct-url-input" name="direct_url" placeholder="http://localhost:3000/" value="${escapeHtml(current.direct_url || "")}" />
-      </label>
+      <div class="detail-meta settings-form-wide">
+        ${
+          editing
+            ? `
+              <span>ID: <code>${escapeHtml(current.id || "-")}</code></span>
+              <span>CWD: <code>${escapeHtml(current.cwd || "-")}</code></span>
+              <span>Override: <code>${escapeHtml(current.override_file || "-")}</code></span>
+            `
+            : `
+              <span>ID は Name から自動生成します</span>
+              <span>CWD は Stack Root 配下に自動作成されます</span>
+              <span>Override File は自動生成されます</span>
+            `
+        }
+      </div>
       <label class="settings-form-wide">
         Notes
         <textarea class="textarea textarea-sm textarea-bordered min-h-20 w-full" id="stack-notes-input" name="notes" placeholder="optional notes">${escapeHtml(current.notes || "")}</textarea>
@@ -537,7 +531,6 @@ function renderStackPage() {
           <span>Compose: <code>${escapeHtml(state.detail.compose_file)}</code></span>
           <span>Override: <code>${escapeHtml(state.detail.override_file || "-")}</code></span>
           <span>Git: ${escapeHtml(gitSummary(state.detail))}</span>
-          <span>Registry Tags: ${escapeHtml((state.detail.tags || []).join(", ") || "-")}</span>
           <span>Last Action: ${escapeHtml(state.detail.last_action ? `${state.detail.last_action.action} (${state.detail.last_action.success ? "success" : "failed"})` : "none")}</span>
         </div>
         <div class="actions" id="stack-actions">
@@ -789,13 +782,9 @@ function stackFormPayload() {
   return {
     id: document.getElementById("stack-id-input").value,
     name: document.getElementById("stack-name-input").value,
-    cwd: document.getElementById("stack-cwd-input").value,
     repo_url: document.getElementById("stack-repo-url-input").value,
     compose_file: document.getElementById("stack-compose-input").value,
-    override_file: document.getElementById("stack-override-input").value,
     branch: document.getElementById("stack-branch-input").value,
-    tags: document.getElementById("stack-tags-input").value,
-    direct_url: document.getElementById("stack-direct-url-input").value,
     notes: document.getElementById("stack-notes-input").value,
   };
 }

@@ -92,10 +92,11 @@ MDNS_TARGET_IP=192.168.1.10
 stack registry は SQLite のみで保持します。
 起動直後は空なので、Overview ページの `Register Stack` から stack を追加してください。
 `repo_url` を入れておくと、stack 個別ページから `Clone` を実行できます。
-`override_file` を入れると、実行時は `docker compose -f <compose_file> -f <override_file>` で重ねます。
-`ports:` の衝突回避や、環境別の bind mount / labels 追加はこの override file に寄せるのが無難です。
-override file は upstream repo の外に置く前提で、`/opt/niwaki/overrides/<stack-id>.yaml` のような絶対パスをおすすめします。
-`override_file` も `STACK_ROOT` 配下である必要があるため、ローカルで `STACK_ROOT="$PWD/stacks"` を使う場合は override もその配下に置くか、`STACK_ROOT="$PWD"` のように広げてください。
+`ID` は `Name` から自動生成します。
+`CWD` は `STACK_ROOT` 配下に自動で決まり、標準では `stacks/<id>` になります。
+`Override File` も自動で決まり、標準では `overrides/<id>.yaml` を使います。
+保存時に override file が無ければ、Niwaki が雛形を自動作成します。
+実行時は `docker compose -f <compose_file> -f <override_file>` で重ねるので、`ports:` の衝突回避や環境別の追加設定はこの override file に寄せます。
 
 ### 3. compose で起動する
 
