@@ -97,6 +97,8 @@ stack registry は SQLite のみで保持します。
 `Override File` も自動で決まり、標準では `overrides/<id>.yaml` を使います。
 保存時に override file が無ければ、Niwaki が雛形を自動作成します。
 実行時は `docker compose -f <compose_file> -f <override_file>` で重ねるので、`ports:` の衝突回避や環境別の追加設定はこの override file に寄せます。
+stack 個別ページの `Traefik Override` から、service / port / hostname を選んで reverse proxy 用 override を自動生成できます。
+標準では `TRAEFIK_NETWORK=proxy`、`TRAEFIK_ENTRYPOINT=web` を使います。
 
 ### 3. compose で起動する
 
