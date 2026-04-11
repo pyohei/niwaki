@@ -24,6 +24,7 @@ def ensure_database(path: Path) -> None:
                 branch TEXT NOT NULL DEFAULT '',
                 tags_json TEXT NOT NULL DEFAULT '[]',
                 direct_url TEXT NOT NULL DEFAULT '',
+                traefik_url TEXT NOT NULL DEFAULT '',
                 notes TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -84,3 +85,5 @@ def ensure_database(path: Path) -> None:
             connection.execute("ALTER TABLE stacks ADD COLUMN repo_url TEXT NOT NULL DEFAULT ''")
         if "override_file" not in columns:
             connection.execute("ALTER TABLE stacks ADD COLUMN override_file TEXT NOT NULL DEFAULT ''")
+        if "traefik_url" not in columns:
+            connection.execute("ALTER TABLE stacks ADD COLUMN traefik_url TEXT NOT NULL DEFAULT ''")
