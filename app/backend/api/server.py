@@ -12,6 +12,7 @@ from ..docker.socket_client import DockerAPIClient
 from ..features.deploys.service import DeployService
 from ..features.logs.service import LogsService
 from ..features.mdns.service import MdnsService
+from ..features.overrides.service import OverrideService
 from ..features.settings.service import SettingsService
 from ..features.stacks.service import StackService
 from ..git.credentials import GitCredentialStore
@@ -27,6 +28,7 @@ class AppServices:
     deploy_service: DeployService
     logs_service: LogsService
     mdns_service: MdnsService
+    override_service: OverrideService
     settings_service: SettingsService
     audit_store: AuditStore
 
@@ -133,6 +135,22 @@ class NiwakiHandler(BaseHTTPRequestHandler):
             except ValueError as exc:
                 raise ApiError(400, str(exc)) from exc
             json_response(self, record, 202)
+            return
+        if path.startswith("/api/stacks/") and path.endswith("/override/traefik"):
+            stack_id = path.split("/")[3]
+            stack = self._resolve_stack(stack_id)
+            payload = read_json_body(self)
+            try:
+                result = self.server.services.override_service.generate_traefik_override(
+                    stack,
+                    service_name=str(payload.get("service_name") or "").strip(),
+                    target_port=str(payload.get("target_port") or "").strip(),
+                    hostname=str(payload.get("hostname") or "").strip(),
+                    create_alias=bool(payload.get("create_alias")),
+                )
+            except ValueError as exc:
+                raise ApiError(400, str(exc)) from exc
+            json_response(self, result, 201)
             return
         if path == "/api/mdns/aliases":
             if not self.server.services.config.mdns_enabled:
@@ -266,6 +284,7 @@ def build_services(config: AppConfig) -> AppServices:
     deploy_service = DeployService(compose_service, git_service, audit_store, config.command_output_max_lines)
     logs_service = LogsService(compose_service, config.command_output_max_lines)
     mdns_service = MdnsService(config, docker_api)
+    override_service = OverrideService(config, registry, compose_service, mdns_service)
     settings_service = SettingsService(registry, credential_store)
     return AppServices(
         config=config,
@@ -274,6 +293,7 @@ def build_services(config: AppConfig) -> AppServices:
         deploy_service=deploy_service,
         logs_service=logs_service,
         mdns_service=mdns_service,
+        override_service=override_service,
         settings_service=settings_service,
         audit_store=audit_store,
     )

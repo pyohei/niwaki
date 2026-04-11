@@ -60,6 +60,8 @@ class AppConfig:
     audit_log_path: Path
     docker_socket_path: str
     docker_api_version: str
+    traefik_network: str
+    traefik_entrypoint: str
     mdns_enabled: bool
     mdns_default_domain: str
     mdns_publish_image: str
@@ -103,6 +105,8 @@ def load_config() -> AppConfig:
         audit_log_path=_env_path("AUDIT_LOG_PATH", "data/command-history.jsonl", project_root),
         docker_socket_path=os.environ.get("DOCKER_SOCKET_PATH", "/var/run/docker.sock"),
         docker_api_version=os.environ.get("DOCKER_API_VERSION", "v1.41"),
+        traefik_network=os.environ.get("TRAEFIK_NETWORK", "proxy"),
+        traefik_entrypoint=os.environ.get("TRAEFIK_ENTRYPOINT", "web"),
         mdns_enabled=_env_bool("MDNS_ENABLED", True),
         mdns_default_domain=os.environ.get("MDNS_DEFAULT_DOMAIN", "local"),
         mdns_publish_image=os.environ.get("MDNS_PUBLISH_IMAGE", "niwaki:local"),

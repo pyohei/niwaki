@@ -38,6 +38,33 @@ class ComposeService:
             return json.loads(raw)
         return [json.loads(line) for line in raw.splitlines() if line.strip()]
 
+    def discover_services(self, stack: StackDefinition) -> list[dict[str, Any]]:
+        result = self._run(stack, "config", "--format", "json")
+        if result.exit_code != 0:
+            raise RuntimeError(result.output)
+        raw = result.stdout.strip()
+        if not raw:
+            return []
+        payload = json.loads(raw)
+        services = []
+        for name, config in (payload.get("services") or {}).items():
+            ports: set[str] = set()
+            for port in config.get("ports") or []:
+                if isinstance(port, dict) and port.get("target"):
+                    ports.add(str(port["target"]))
+            for port in config.get("expose") or []:
+                ports.add(str(port))
+            services.append(
+                {
+                    "name": name,
+                    "image": config.get("image", ""),
+                    "ports": sorted(ports, key=lambda value: int(value) if value.isdigit() else value),
+                    "has_published_ports": bool(config.get("ports")),
+                }
+            )
+        services.sort(key=lambda item: item["name"])
+        return services
+
     def _run(self, stack: StackDefinition, *args: str) -> CommandResult:
         command = ["docker", "compose"]
         for compose_file in stack.compose_files():

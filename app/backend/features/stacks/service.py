@@ -25,10 +25,16 @@ class StackService:
         git_info = self._git.info(stack).to_dict()
         containers = []
         compose_error = ""
+        compose_services = []
+        compose_services_error = ""
         try:
             containers = self._compose.ps(stack)
         except Exception as exc:
             compose_error = str(exc)
+        try:
+            compose_services = self._compose.discover_services(stack)
+        except Exception as exc:
+            compose_services_error = str(exc)
         last_action = self._audit.last_for_stack(stack.id)
         return {
             "id": stack.id,
@@ -47,6 +53,8 @@ class StackService:
             "container_count": len(containers),
             "status": _status_from_containers(containers, compose_error),
             "compose_error": compose_error,
+            "compose_services": compose_services,
+            "compose_services_error": compose_services_error,
             "last_action": last_action,
             "logs_included": include_logs,
         }

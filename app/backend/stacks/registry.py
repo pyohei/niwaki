@@ -98,45 +98,58 @@ class StackRegistry:
     def _coerce_payload(self, payload: dict) -> StackDefinition:
         name = str(payload.get("name") or "").strip()
         stack_id = self._coerce_stack_id(str(payload.get("id") or "").strip(), name)
-        resolved_cwd = self._coerce_cwd(str(payload.get("cwd") or "").strip(), stack_id)
+        existing = self._find_existing(stack_id)
+        resolved_cwd = self._coerce_cwd(str(payload.get("cwd") or "").strip(), stack_id, existing)
         compose_file = str(payload.get("compose_file") or "compose.yaml").strip() or "compose.yaml"
-        override_file = self._coerce_override_file(str(payload.get("override_file") or "").strip(), resolved_cwd, stack_id)
+        override_file = self._coerce_override_file(
+            str(payload.get("override_file") or "").strip(),
+            resolved_cwd,
+            stack_id,
+            existing,
+        )
         if override_file:
             self._validate_path(Path(override_file))
         return StackDefinition(
             id=stack_id,
-            name=name or stack_id,
+            name=name or (existing.name if existing else stack_id),
             cwd=resolved_cwd,
-            repo_url=str(payload.get("repo_url") or "").strip(),
+            repo_url=str(payload.get("repo_url") or (existing.repo_url if existing else "")).strip(),
             compose_file=compose_file,
             override_file=override_file,
-            branch=str(payload.get("branch") or "").strip(),
+            branch=str(payload.get("branch") or (existing.branch if existing else "")).strip(),
             tags=[],
-            direct_url="",
-            traefik_url=str(payload.get("traefik_url") or "").strip(),
-            notes=str(payload.get("notes") or "").strip(),
+            direct_url=existing.direct_url if existing else "",
+            traefik_url=str(payload.get("traefik_url") or (existing.traefik_url if existing else "")).strip(),
+            notes=str(payload.get("notes") or (existing.notes if existing else "")).strip(),
         )
 
     def _coerce_stack_id(self, value: str, name: str) -> str:
-        candidate = value or name
+        if value:
+            return value.strip()
+        candidate = name
         candidate = re.sub(r"[\\/]+", "-", candidate.strip())
         candidate = re.sub(r"\s+", "-", candidate)
+        candidate = candidate.lower()
         candidate = candidate.strip("-.")
         if not candidate:
             raise RegistryError("Stack name is required.")
         return candidate
 
-    def _coerce_cwd(self, value: str, stack_id: str) -> Path:
+    def _coerce_cwd(self, value: str, stack_id: str, existing: Optional[StackDefinition]) -> Path:
         if value:
             return Path(value).expanduser().resolve()
+        if existing is not None:
+            return existing.cwd.resolve()
         if self._stack_root is None:
             raise RegistryError("cwd is required when STACK_ROOT is not set.")
         if self._stack_root.name == "stacks":
             return (self._stack_root / stack_id).resolve()
         return (self._stack_root / "stacks" / stack_id).resolve()
 
-    def _coerce_override_file(self, value: str, cwd: Path, stack_id: str) -> str:
+    def _coerce_override_file(self, value: str, cwd: Path, stack_id: str, existing: Optional[StackDefinition]) -> str:
         if not value:
+            if existing is not None and existing.override_file:
+                return existing.override_file
             if self._stack_root is None:
                 return ""
             return str((self._stack_root / "overrides" / f"{stack_id}.yaml").resolve())
@@ -165,6 +178,20 @@ class StackRegistry:
     def _validate_path(self, cwd: Path) -> None:
         if self._stack_root and self._stack_root not in cwd.parents and cwd != self._stack_root:
             raise RegistryError(f"Stack path escapes STACK_ROOT: {cwd}")
+
+    def _find_existing(self, stack_id: str) -> Optional[StackDefinition]:
+        with connect_database(self._database_path) as connection:
+            row = connection.execute(
+                """
+                SELECT id, name, cwd, repo_url, compose_file, override_file, branch, tags_json, direct_url, traefik_url, notes
+                FROM stacks
+                WHERE id = ?
+                """,
+                (stack_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return self._row_to_stack(row)
 
     @staticmethod
     def _row_to_stack(row) -> StackDefinition:

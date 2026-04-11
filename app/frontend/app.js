@@ -275,6 +275,7 @@ function registryListMarkup(showOpenLink = true) {
 
 function stackLinksMarkup(stack) {
   const links = [
+    stack?.traefik_url ? ["Traefik URL", stack.traefik_url] : null,
     stack?.repo_url ? ["Repo", stack.repo_url] : null,
   ].filter(Boolean);
 
@@ -295,6 +296,27 @@ function stackLinksMarkup(stack) {
         .join("")}
     </div>
   `;
+}
+
+function defaultHostnameForStack(stack) {
+  if (!stack?.id) {
+    return "app.local";
+  }
+  return `${String(stack.id).toLowerCase()}.local`;
+}
+
+function serviceOptionsMarkup(services) {
+  if (!services?.length) {
+    return '<option value="">service を選べません</option>';
+  }
+  return services
+    .map((service, index) => {
+      const defaultPort = service.ports?.[0] || "";
+      const selected = index === 0 ? "selected" : "";
+      const labelSuffix = service.ports?.length ? ` (${service.ports.join(", ")})` : "";
+      return `<option value="${escapeHtml(service.name)}" data-default-port="${escapeHtml(defaultPort)}" ${selected}>${escapeHtml(service.name + labelSuffix)}</option>`;
+    })
+    .join("");
 }
 
 function stackFormMarkup(stack = null) {
@@ -590,11 +612,55 @@ function renderStackPage() {
         <pre class="code-block" id="action-output">${escapeHtml(commandOutput)}</pre>
       </section>
     </section>
+
+    <section class="page-grid">
+      <section class="panel">
+        <div class="panel-header">
+          <h2 class="text-lg font-semibold">Traefik Override</h2>
+        </div>
+        ${
+          state.detail.compose_services_error
+            ? `<p class="empty-state">${escapeHtml(state.detail.compose_services_error)}</p>`
+            : `
+              <form id="traefik-override-form" class="settings-form">
+                <label>
+                  Service
+                  <select class="select select-sm select-bordered w-full" id="traefik-service-input" name="service_name">
+                    ${serviceOptionsMarkup(state.detail.compose_services || [])}
+                  </select>
+                </label>
+                <label>
+                  Internal Port
+                  <input class="input input-sm input-bordered w-full" id="traefik-port-input" name="target_port" value="${escapeHtml(state.detail.compose_services?.[0]?.ports?.[0] || "")}" placeholder="3000" required />
+                </label>
+                <label>
+                  Hostname
+                  <input class="input input-sm input-bordered w-full" id="traefik-hostname-input" name="hostname" value="${escapeHtml(defaultHostnameForStack(state.detail))}" placeholder="genkan.local" required />
+                </label>
+                ${
+                  state.meta?.mdns_enabled
+                    ? `
+                      <label class="label cursor-pointer justify-start gap-2">
+                        <input class="checkbox checkbox-sm" id="traefik-create-alias-input" name="create_alias" type="checkbox" checked />
+                        <span class="label-text">mDNS alias も作成する</span>
+                      </label>
+                    `
+                    : ""
+                }
+                <div class="inline-actions settings-form-wide">
+                  <button class="btn btn-sm btn-primary" type="submit">Generate Override</button>
+                </div>
+              </form>
+            `
+        }
+      </section>
+    </section>
   `;
 
   bindStackActions();
   bindStackForm({ redirectToSavedStack: false });
   bindStackDelete();
+  bindTraefikOverrideForm();
 }
 
 function renderSettingsPage() {
@@ -850,6 +916,46 @@ function bindStackActions() {
         handleError(error);
       }
     });
+  });
+}
+
+function bindTraefikOverrideForm() {
+  const form = document.getElementById("traefik-override-form");
+  if (!form || !state.detail) {
+    return;
+  }
+  const serviceInput = document.getElementById("traefik-service-input");
+  const portInput = document.getElementById("traefik-port-input");
+
+  if (serviceInput && portInput) {
+    serviceInput.addEventListener("change", () => {
+      const option = serviceInput.selectedOptions?.[0];
+      const defaultPort = option?.dataset.defaultPort || "";
+      if (defaultPort) {
+        portInput.value = defaultPort;
+      }
+    });
+  }
+
+  form.addEventListener("submit", async (event) => {
+    try {
+      event.preventDefault();
+      const payload = {
+        service_name: document.getElementById("traefik-service-input").value,
+        target_port: document.getElementById("traefik-port-input").value,
+        hostname: document.getElementById("traefik-hostname-input").value,
+        create_alias: Boolean(document.getElementById("traefik-create-alias-input")?.checked),
+      };
+      const result = await request(apiPath(`stacks/${encodeURIComponent(state.detail.id)}/override/traefik`), {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      state.actionOutputOverride = JSON.stringify(result, null, 2);
+      await loadCurrentPage();
+      render();
+    } catch (error) {
+      handleError(error);
+    }
   });
 }
 

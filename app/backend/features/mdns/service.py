@@ -67,6 +67,22 @@ class MdnsService:
             "target_ip": resolved_target_ip,
         }
 
+    def ensure_alias(self, alias: str, target_ip: Optional[str] = None) -> dict[str, Any]:
+        normalized_alias = self.normalize_alias(alias)
+        resolved_target_ip = (target_ip or self._config.mdns_target_ip).strip()
+        if not resolved_target_ip:
+            raise ValueError("MDNS_TARGET_IP is required.")
+        for item in self.list_aliases():
+            if item["alias"] != normalized_alias:
+                continue
+            if item["target_ip"] and item["target_ip"] != resolved_target_ip:
+                raise ValueError(f"Alias already exists with different target: {normalized_alias}")
+            return {
+                "alias": normalized_alias,
+                "target_ip": resolved_target_ip,
+            }
+        return self.create_alias(normalized_alias, resolved_target_ip)
+
     def delete_alias(self, alias: str) -> None:
         normalized_alias = self.normalize_alias(alias)
         for item in self.list_aliases():
