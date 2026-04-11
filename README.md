@@ -3,13 +3,13 @@
 Niwaki は、単一ホストの Docker Compose スタックをブラウザから管理するための小さなデプロイ UI です。
 Git 管理された Compose ファイルを source of truth とし、stack ごとの詳細ページ、deploy、logs、mDNS alias 管理を扱います。
 
-このリポジトリは `Niwaki` 本体だけを持ちます。
-reverse proxy はこの repo の責務に含めず、必要なら別の構成でカバーします。
+このリポジトリは `Niwaki` 本体と、stack 公開用の最小 `Traefik` を持ちます。
+複雑な reverse proxy 管理は含めませんが、`Traefik Override` で作った stack を受けるための `Traefik` は同梱します。
 `Niwaki` は mDNS alias UI と publisher 機能を内包しているため、別の `mdns-admin` compose は不要です。
 
 主な構成:
 
-- `compose.yaml`: Niwaki を standalone で起動する compose
+- `compose.yaml`: `Niwaki` と `Traefik` を起動する compose
 - `app/`: Niwaki 本体
 - `docs/`: UI / 運用 / mDNS の設計メモ
 
@@ -65,7 +65,7 @@ curl -fsSL https://raw.githubusercontent.com/pyohei/niwaki/main/install.sh | NIW
 ## 起動方法
 
 標準の導線は `Niwaki` の直公開です。デフォルトでは `http://raspberrypi.local:8787/` に出します。
-別の reverse proxy を前段に置く場合は、この repo ではなく外側で受けて、`APP_BASE_URL` と `APP_BASE_PATH` を実際の公開 URL に合わせて調整します。
+同時に `compose.yaml` は `Traefik` も起動し、stack ごとの `Traefik Override` で公開した app を `*.local` で受けられるようにします。
 
 ### 1. 設定ファイルを用意する
 
@@ -98,7 +98,7 @@ stack registry は SQLite のみで保持します。
 保存時に override file が無ければ、Niwaki が雛形を自動作成します。
 実行時は `docker compose -f <compose_file> -f <override_file>` で重ねるので、`ports:` の衝突回避や環境別の追加設定はこの override file に寄せます。
 stack 個別ページの `Traefik Override` から、service / port / hostname を選んで reverse proxy 用 override を自動生成できます。
-標準では `TRAEFIK_NETWORK=proxy`、`TRAEFIK_ENTRYPOINT=web` を使います。
+標準では `TRAEFIK_NETWORK=proxy`、`TRAEFIK_ENTRYPOINT=web` を使います。`compose.yaml` 側で同名 network を作るので、通常は別途 `docker network create proxy` は不要です。
 
 ### 3. compose で起動する
 
@@ -110,6 +110,7 @@ docker compose up -d --build
 
 - primary URL: `http://raspberrypi.local:8787/`
 - direct URL: `http://<raspberry-pi-ip>:8787/`
+- `Traefik` entrypoint: `http://<raspberry-pi-ip>/`
 
 起動後の主なページは以下です。
 
@@ -118,10 +119,9 @@ docker compose up -d --build
 - `settings`: システム共通の Git credential
 - `aliases`: `mdns-admin` 互換ラベルでの mDNS alias 管理
 
-### 4. reverse proxy 配下で使う場合
+### 4. 別の reverse proxy 配下で使う場合
 
-この repo 自体は reverse proxy を持ちません。
-別の reverse proxy から公開する場合は、少なくとも以下を合わせてください。
+標準の `Traefik` とは別に、さらに外側の reverse proxy から公開する場合は、少なくとも以下を合わせてください。
 
 - `APP_BASE_URL`
 - `APP_BASE_PATH`
