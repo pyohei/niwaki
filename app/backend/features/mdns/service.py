@@ -41,6 +41,11 @@ class MdnsService:
         if any(item["alias"] == normalized_alias for item in self.list_aliases()):
             raise ValueError(f"Alias already exists: {normalized_alias}")
         name = self._container_name(normalized_alias)
+        existing = self._find_container_by_name(name)
+        if existing:
+            if not self._is_managed(existing):
+                raise ValueError(f"Container name is already in use: {name}")
+            self._docker_api.delete_container(existing.get("Id") or name)
         config = {
             "Image": self._config.mdns_publish_image,
             "Cmd": ["publisher"],
@@ -72,15 +77,28 @@ class MdnsService:
         resolved_target_ip = (target_ip or self._config.mdns_target_ip).strip()
         if not resolved_target_ip:
             raise ValueError("MDNS_TARGET_IP is required.")
+        name = self._container_name(normalized_alias)
         for item in self.list_aliases():
             if item["alias"] != normalized_alias:
                 continue
             if item["target_ip"] and item["target_ip"] != resolved_target_ip:
-                raise ValueError(f"Alias already exists with different target: {normalized_alias}")
+                self._docker_api.delete_container(item["id"])
+                return self.create_alias(normalized_alias, resolved_target_ip)
+            if item["state"] != "running":
+                self._docker_api.start_container(item["name"] or item["id"])
             return {
                 "alias": normalized_alias,
                 "target_ip": resolved_target_ip,
             }
+        existing = self._find_container_by_name(name)
+        if existing:
+            if not self._is_managed(existing):
+                raise ValueError(f"Container name is already in use: {name}")
+            labels = existing.get("Labels") or {}
+            existing_alias = labels.get(self._config.mdns_alias_label, "")
+            if existing_alias and existing_alias != normalized_alias:
+                raise ValueError(f"Container name is already reserved for another alias: {existing_alias}")
+            self._docker_api.delete_container(existing.get("Id") or name)
         return self.create_alias(normalized_alias, resolved_target_ip)
 
     def delete_alias(self, alias: str) -> None:
@@ -104,3 +122,15 @@ class MdnsService:
     @staticmethod
     def _container_name(alias: str) -> str:
         return "mdns-alias-" + alias.split(".", 1)[0]
+
+    def _find_container_by_name(self, name: str) -> Optional[dict[str, Any]]:
+        containers = self._docker_api.list_containers_by_name(name)
+        for container in containers:
+            names = container.get("Names") or []
+            if any(item.lstrip("/") == name for item in names):
+                return container
+        return None
+
+    def _is_managed(self, container: dict[str, Any]) -> bool:
+        labels = container.get("Labels") or {}
+        return labels.get(self._config.mdns_managed_label) == "true"

@@ -58,6 +58,10 @@ class DockerAPIClient:
         filters = urllib.parse.quote(json.dumps({"label": [f"{label_key}={label_value}"]}), safe="")
         return self.request("GET", f"/containers/json?all=1&filters={filters}")
 
+    def list_containers_by_name(self, name: str) -> list[dict[str, Any]]:
+        filters = urllib.parse.quote(json.dumps({"name": [name]}), safe="")
+        return self.request("GET", f"/containers/json?all=1&filters={filters}")
+
     def create_container(self, name: str, config: dict[str, Any]) -> None:
         self.request(
             "POST",
@@ -70,7 +74,7 @@ class DockerAPIClient:
         self.request(
             "POST",
             f"/containers/{urllib.parse.quote(container_name, safe='')}/start",
-            expected=(204,),
+            expected=(204, 304),
         )
 
     def delete_container(self, container_id: str) -> None:

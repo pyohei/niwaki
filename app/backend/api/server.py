@@ -8,6 +8,7 @@ from ..auth.basic import BasicAuthenticator
 from ..core.config import AppConfig, load_config
 from ..core.http import ApiError, json_response, read_json_body, send_static_file
 from ..docker.compose import ComposeService
+from ..docker.network import DockerNetworkService
 from ..docker.socket_client import DockerAPIClient
 from ..features.deploys.service import DeployService
 from ..features.logs.service import LogsService
@@ -278,10 +279,18 @@ def build_services(config: AppConfig) -> AppServices:
     registry = StackRegistry(config.settings_db_path, config.stack_root)
     credential_store = GitCredentialStore(config.settings_db_path)
     compose_service = ComposeService(config.command_output_max_lines)
+    network_service = DockerNetworkService()
     git_service = GitService(config.git_pull_flags, credential_store)
     docker_api = DockerAPIClient(config.docker_socket_path, config.docker_api_version)
     stack_service = StackService(registry, compose_service, git_service, audit_store)
-    deploy_service = DeployService(compose_service, git_service, audit_store, config.command_output_max_lines)
+    deploy_service = DeployService(
+        compose_service,
+        network_service,
+        git_service,
+        audit_store,
+        config.command_output_max_lines,
+        config.traefik_network,
+    )
     logs_service = LogsService(compose_service, config.command_output_max_lines)
     mdns_service = MdnsService(config, docker_api)
     override_service = OverrideService(config, registry, compose_service, mdns_service)

@@ -1,9 +1,11 @@
+from pathlib import Path
 import uuid
 from typing import Callable
 
 from ...audit.store import AuditStore
 from ...core.process import CommandResult
 from ...docker.compose import ComposeService
+from ...docker.network import DockerNetworkService
 from ...git.service import GitService
 from ...stacks.models import StackDefinition
 
@@ -12,14 +14,18 @@ class DeployService:
     def __init__(
         self,
         compose_service: ComposeService,
+        network_service: DockerNetworkService,
         git_service: GitService,
         audit_store: AuditStore,
         output_line_limit: int,
+        traefik_network: str,
     ):
         self._compose = compose_service
+        self._network = network_service
         self._git = git_service
         self._audit = audit_store
         self._output_line_limit = output_line_limit
+        self._traefik_network = traefik_network
 
     def run_action(self, stack: StackDefinition, action: str) -> dict:
         actions: dict[str, list[tuple[str, Callable[[StackDefinition], CommandResult], bool]]] = {
@@ -39,6 +45,13 @@ class DeployService:
         }
         if action not in actions:
             raise ValueError(f"Unsupported action: {action}")
+        steps = list(actions[action])
+        if action in {"up", "deploy"} and self._needs_traefik_network(stack):
+            ensure_step = (f"docker network create {self._traefik_network}", self._ensure_traefik_network, False)
+            up_index = next(
+                index for index, (step_name, _, _) in enumerate(steps) if step_name == "docker compose up -d"
+            )
+            steps.insert(up_index, ensure_step)
 
         git_info = self._git.info(stack)
         record = {
@@ -52,7 +65,7 @@ class DeployService:
             "steps": [],
         }
 
-        for step_name, operation, requires_git in actions[action]:
+        for step_name, operation, requires_git in steps:
             if record["started_at"] == "":
                 record["started_at"] = _now()
             if requires_git and not git_info.available:
@@ -81,6 +94,15 @@ class DeployService:
             record["completed_at"] = _now()
         self._audit.append(record)
         return record
+
+    def _ensure_traefik_network(self, stack: StackDefinition) -> CommandResult:
+        return self._network.ensure_network(self._traefik_network, cwd=str(stack.cwd))
+
+    @staticmethod
+    def _needs_traefik_network(stack: StackDefinition) -> bool:
+        if not stack.override_file or not stack.traefik_url:
+            return False
+        return Path(stack.override_file).is_file()
 
 
 def _now() -> str:
