@@ -1,4 +1,21 @@
 services:
+  traefik:
+    image: traefik:v3.6
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=${TRAEFIK_NETWORK:-proxy}
+      - --entrypoints.web.address=:80
+      - --log.level=${TRAEFIK_LOG_LEVEL:-INFO}
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - proxy
+
   niwaki:
     build:
       context: ./app
@@ -35,3 +52,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./data:/app/data
       - ${STACK_ROOT:-/opt/niwaki}:${STACK_ROOT:-/opt/niwaki}
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    name: ${TRAEFIK_NETWORK:-proxy}
