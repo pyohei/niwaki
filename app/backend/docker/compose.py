@@ -48,18 +48,38 @@ class ComposeService:
         payload = json.loads(raw)
         services = []
         for name, config in (payload.get("services") or {}).items():
-            ports: set[str] = set()
+            published_ports: set[str] = set()
+            exposed_ports: set[str] = set()
             for port in config.get("ports") or []:
                 if isinstance(port, dict) and port.get("target"):
-                    ports.add(str(port["target"]))
+                    published_ports.add(str(port["target"]))
             for port in config.get("expose") or []:
-                ports.add(str(port))
+                exposed_ports.add(str(port))
+            ordered_ports = sorted(
+                published_ports | exposed_ports,
+                key=lambda value: int(value) if value.isdigit() else value,
+            )
+            preferred_ports = published_ports or exposed_ports
             services.append(
                 {
                     "name": name,
                     "image": config.get("image", ""),
-                    "ports": sorted(ports, key=lambda value: int(value) if value.isdigit() else value),
-                    "has_published_ports": bool(config.get("ports")),
+                    "ports": ordered_ports,
+                    "published_ports": sorted(
+                        published_ports,
+                        key=lambda value: int(value) if value.isdigit() else value,
+                    ),
+                    "exposed_ports": sorted(
+                        exposed_ports,
+                        key=lambda value: int(value) if value.isdigit() else value,
+                    ),
+                    "preferred_port": sorted(
+                        preferred_ports,
+                        key=lambda value: int(value) if value.isdigit() else value,
+                    )[0]
+                    if preferred_ports
+                    else "",
+                    "has_published_ports": bool(published_ports),
                 }
             )
         services.sort(key=lambda item: item["name"])

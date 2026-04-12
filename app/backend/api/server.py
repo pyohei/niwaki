@@ -153,6 +153,21 @@ class NiwakiHandler(BaseHTTPRequestHandler):
                 raise ApiError(400, str(exc)) from exc
             json_response(self, result, 201)
             return
+        if path.startswith("/api/stacks/") and path.endswith("/override/port"):
+            stack_id = path.split("/")[3]
+            stack = self._resolve_stack(stack_id)
+            payload = read_json_body(self)
+            try:
+                result = self.server.services.override_service.generate_port_override(
+                    stack,
+                    service_name=str(payload.get("service_name") or "").strip(),
+                    target_port=str(payload.get("target_port") or "").strip(),
+                    published_port=str(payload.get("published_port") or "").strip(),
+                )
+            except ValueError as exc:
+                raise ApiError(400, str(exc)) from exc
+            json_response(self, result, 201)
+            return
         if path == "/api/mdns/aliases":
             if not self.server.services.config.mdns_enabled:
                 raise ApiError(404, "mDNS feature is disabled.")
