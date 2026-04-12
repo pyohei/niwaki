@@ -30,6 +30,7 @@ class DeployService:
     def run_action(self, stack: StackDefinition, action: str) -> dict:
         actions: dict[str, list[tuple[str, Callable[[StackDefinition], CommandResult], bool]]] = {
             "clone": [("git clone", self._git.clone, False)],
+            "git-pull": [("git pull --ff-only", self._git.pull, True)],
             "validate": [("docker compose config", self._compose.validate, False)],
             "pull": [("docker compose pull", self._compose.pull, False)],
             "up": [("docker compose up -d", self._compose.up, False)],

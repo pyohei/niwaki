@@ -311,7 +311,7 @@ function serviceOptionsMarkup(services) {
   }
   return services
     .map((service, index) => {
-      const defaultPort = service.ports?.[0] || "";
+      const defaultPort = service.preferred_port || service.ports?.[0] || "";
       const selected = index === 0 ? "selected" : "";
       const labelSuffix = service.ports?.length ? ` (${service.ports.join(", ")})` : "";
       return `<option value="${escapeHtml(service.name)}" data-default-port="${escapeHtml(defaultPort)}" ${selected}>${escapeHtml(service.name + labelSuffix)}</option>`;
@@ -558,8 +558,9 @@ function renderStackPage() {
         <div class="actions" id="stack-actions">
           ${[
             ["clone", "Clone", false],
+            ["git-pull", "Git Pull", false],
             ["validate", "Validate", false],
-            ["pull", "Pull", false],
+            ["pull", "Compose Pull", false],
             ["up", "Up -d", false],
             ["restart", "Restart", false],
             ["down", "Down", true],
@@ -631,7 +632,7 @@ function renderStackPage() {
                 </label>
                 <label>
                   Internal Port
-                  <input class="input input-sm input-bordered w-full" id="traefik-port-input" name="target_port" value="${escapeHtml(state.detail.compose_services?.[0]?.ports?.[0] || "")}" placeholder="3000" required />
+                  <input class="input input-sm input-bordered w-full" id="traefik-port-input" name="target_port" value="${escapeHtml(state.detail.compose_services?.[0]?.preferred_port || state.detail.compose_services?.[0]?.ports?.[0] || "")}" placeholder="3000" required />
                 </label>
                 <label>
                   Hostname
@@ -654,6 +655,38 @@ function renderStackPage() {
             `
         }
       </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2 class="text-lg font-semibold">Port Override</h2>
+        </div>
+        ${
+          state.detail.compose_services_error
+            ? `<p class="empty-state">${escapeHtml(state.detail.compose_services_error)}</p>`
+            : `
+              <form id="port-override-form" class="settings-form">
+                <p class="muted">override file を上書きして、service を host port に直接 publish します。Traefik Override とは併用ではなく切り替え前提です。</p>
+                <label>
+                  Service
+                  <select class="select select-sm select-bordered w-full" id="port-override-service-input" name="service_name">
+                    ${serviceOptionsMarkup(state.detail.compose_services || [])}
+                  </select>
+                </label>
+                <label>
+                  Internal Port
+                  <input class="input input-sm input-bordered w-full" id="port-override-target-port-input" name="target_port" value="${escapeHtml(state.detail.compose_services?.[0]?.preferred_port || state.detail.compose_services?.[0]?.ports?.[0] || "")}" placeholder="3000" required />
+                </label>
+                <label>
+                  Published Port
+                  <input class="input input-sm input-bordered w-full" id="port-override-published-port-input" name="published_port" value="" placeholder="8081" required />
+                </label>
+                <div class="inline-actions settings-form-wide">
+                  <button class="btn btn-sm btn-secondary" type="submit">Generate Port Override</button>
+                </div>
+              </form>
+            `
+        }
+      </section>
     </section>
   `;
 
@@ -661,6 +694,7 @@ function renderStackPage() {
   bindStackForm({ redirectToSavedStack: false });
   bindStackDelete();
   bindTraefikOverrideForm();
+  bindPortOverrideForm();
 }
 
 function renderSettingsPage() {
@@ -949,6 +983,44 @@ function bindTraefikOverrideForm() {
       const result = await request(apiPath(`stacks/${encodeURIComponent(state.detail.id)}/override/traefik`), {
         method: "POST",
         body: JSON.stringify(payload),
+      });
+      state.actionOutputOverride = JSON.stringify(result, null, 2);
+      await loadCurrentPage();
+      render();
+    } catch (error) {
+      handleError(error);
+    }
+  });
+}
+
+function bindPortOverrideForm() {
+  const form = document.getElementById("port-override-form");
+  if (!form || !state.detail) {
+    return;
+  }
+  const serviceInput = document.getElementById("port-override-service-input");
+  const targetPortInput = document.getElementById("port-override-target-port-input");
+
+  if (serviceInput && targetPortInput) {
+    serviceInput.addEventListener("change", () => {
+      const option = serviceInput.selectedOptions?.[0];
+      const defaultPort = option?.dataset.defaultPort || "";
+      if (defaultPort) {
+        targetPortInput.value = defaultPort;
+      }
+    });
+  }
+
+  form.addEventListener("submit", async (event) => {
+    try {
+      event.preventDefault();
+      const result = await request(apiPath(`stacks/${encodeURIComponent(state.detail.id)}/override/port`), {
+        method: "POST",
+        body: JSON.stringify({
+          service_name: document.getElementById("port-override-service-input").value,
+          target_port: document.getElementById("port-override-target-port-input").value,
+          published_port: document.getElementById("port-override-published-port-input").value,
+        }),
       });
       state.actionOutputOverride = JSON.stringify(result, null, 2);
       await loadCurrentPage();
