@@ -16,6 +16,7 @@ from ..features.mdns.service import MdnsService
 from ..features.overrides.service import OverrideService
 from ..features.settings.service import SettingsService
 from ..features.stacks.service import StackService
+from ..features.system.service import SystemService
 from ..git.credentials import GitCredentialStore
 from ..git.service import GitService
 from ..stacks.registry import StackRegistry
@@ -30,6 +31,7 @@ class AppServices:
     logs_service: LogsService
     mdns_service: MdnsService
     override_service: OverrideService
+    system_service: SystemService
     settings_service: SettingsService
     audit_store: AuditStore
 
@@ -99,6 +101,9 @@ class NiwakiHandler(BaseHTTPRequestHandler):
         if path == "/api/settings/git-credential":
             json_response(self, self.server.services.settings_service.get_git_credential())
             return
+        if path == "/api/system":
+            json_response(self, self.server.services.system_service.get_status())
+            return
         if path.startswith("/api/stacks/") and path.endswith("/logs"):
             stack_id = path.split("/")[3]
             tail = int(urllib.parse.parse_qs(parsed.query).get("tail", ["200"])[0])
@@ -142,7 +147,7 @@ class NiwakiHandler(BaseHTTPRequestHandler):
             stack = self._resolve_stack(stack_id)
             payload = read_json_body(self)
             try:
-                result = self.server.services.override_service.generate_traefik_override(
+                override = self.server.services.override_service.generate_traefik_override(
                     stack,
                     service_name=str(payload.get("service_name") or "").strip(),
                     target_port=str(payload.get("target_port") or "").strip(),
@@ -151,14 +156,16 @@ class NiwakiHandler(BaseHTTPRequestHandler):
                 )
             except ValueError as exc:
                 raise ApiError(400, str(exc)) from exc
-            json_response(self, result, 201)
+            updated_stack = self._resolve_stack(stack_id)
+            apply_record = self.server.services.deploy_service.run_action(updated_stack, "up")
+            json_response(self, {"override": override, "apply": apply_record}, 202)
             return
         if path.startswith("/api/stacks/") and path.endswith("/override/port"):
             stack_id = path.split("/")[3]
             stack = self._resolve_stack(stack_id)
             payload = read_json_body(self)
             try:
-                result = self.server.services.override_service.generate_port_override(
+                override = self.server.services.override_service.generate_port_override(
                     stack,
                     service_name=str(payload.get("service_name") or "").strip(),
                     target_port=str(payload.get("target_port") or "").strip(),
@@ -166,7 +173,21 @@ class NiwakiHandler(BaseHTTPRequestHandler):
                 )
             except ValueError as exc:
                 raise ApiError(400, str(exc)) from exc
-            json_response(self, result, 201)
+            updated_stack = self._resolve_stack(stack_id)
+            apply_record = self.server.services.deploy_service.run_action(updated_stack, "up")
+            json_response(self, {"override": override, "apply": apply_record}, 202)
+            return
+        if path.startswith("/api/system/actions/"):
+            action = path.rsplit("/", 1)[1]
+            payload = read_json_body(self)
+            try:
+                result = self.server.services.system_service.launch_runtime_action(
+                    action,
+                    rolling_update=bool(payload.get("rolling_update")),
+                )
+            except ValueError as exc:
+                raise ApiError(400, str(exc)) from exc
+            json_response(self, result, 202)
             return
         if path == "/api/mdns/aliases":
             if not self.server.services.config.mdns_enabled:
@@ -274,13 +295,14 @@ def _meta_payload(config: AppConfig) -> dict:
         "base_path": config.base_path,
         "settings_db_path": str(config.settings_db_path),
         "stack_root": str(config.stack_root) if config.stack_root else "",
+        "runtime_root": str(config.runtime_root) if config.runtime_root else "",
         "mdns_enabled": config.mdns_enabled,
         "mdns_target_ip": config.mdns_target_ip,
     }
 
 
 def _is_frontend_page(path: str) -> bool:
-    if path in {"/settings", "/aliases", "/stacks"}:
+    if path in {"/settings", "/aliases", "/system", "/stacks"}:
         return True
     if not path.startswith("/stacks/"):
         return False
@@ -309,6 +331,7 @@ def build_services(config: AppConfig) -> AppServices:
     logs_service = LogsService(compose_service, config.command_output_max_lines)
     mdns_service = MdnsService(config, docker_api)
     override_service = OverrideService(config, registry, compose_service, mdns_service)
+    system_service = SystemService(config, registry, docker_api)
     settings_service = SettingsService(registry, credential_store)
     return AppServices(
         config=config,
@@ -318,6 +341,7 @@ def build_services(config: AppConfig) -> AppServices:
         logs_service=logs_service,
         mdns_service=mdns_service,
         override_service=override_service,
+        system_service=system_service,
         settings_service=settings_service,
         audit_store=audit_store,
     )

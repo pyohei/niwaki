@@ -46,6 +46,7 @@ def _normalize_base_path(value: str) -> str:
 class AppConfig:
     project_root: Path
     frontend_root: Path
+    runtime_root: Optional[Path]
     host: str
     port: int
     base_url: str
@@ -58,6 +59,7 @@ class AppConfig:
     command_log_retention_days: int
     command_output_max_lines: int
     audit_log_path: Path
+    runtime_image: str
     docker_socket_path: str
     docker_api_version: str
     traefik_network: str
@@ -81,10 +83,22 @@ def load_config() -> AppConfig:
         raise RuntimeError("Either ADMIN_PASSWORD or ADMIN_PASSWORD_HASH must be configured.")
 
     stack_root = os.environ.get("STACK_ROOT")
+    runtime_root = os.environ.get("NIWAKI_RUNTIME_ROOT")
+    resolved_stack_root = Path(stack_root) if stack_root else None
+    resolved_runtime_root: Optional[Path]
+    if runtime_root:
+        resolved_runtime_root = Path(runtime_root)
+    elif resolved_stack_root is None:
+        resolved_runtime_root = None
+    elif resolved_stack_root.name == "stacks":
+        resolved_runtime_root = resolved_stack_root.parent
+    else:
+        resolved_runtime_root = resolved_stack_root
 
     return AppConfig(
         project_root=project_root,
         frontend_root=project_root / "app" / "frontend",
+        runtime_root=resolved_runtime_root,
         host=os.environ.get("APP_HOST", "0.0.0.0"),
         port=int(os.environ.get("APP_PORT", "8787")),
         base_url=os.environ.get("APP_BASE_URL", "http://raspberrypi.local:8787"),
@@ -95,7 +109,7 @@ def load_config() -> AppConfig:
             password_hash=password_hash,
         ),
         settings_db_path=_env_path("SETTINGS_DB_PATH", "data/niwaki.db", project_root),
-        stack_root=Path(stack_root) if stack_root else None,
+        stack_root=resolved_stack_root,
         git_default_branch=os.environ.get("GIT_DEFAULT_BRANCH", "main"),
         git_pull_flags=tuple(
             flag for flag in os.environ.get("GIT_PULL_FLAGS", "--ff-only").split(" ") if flag
@@ -103,6 +117,7 @@ def load_config() -> AppConfig:
         command_log_retention_days=int(os.environ.get("COMMAND_LOG_RETENTION_DAYS", "30")),
         command_output_max_lines=int(os.environ.get("COMMAND_OUTPUT_MAX_LINES", "200")),
         audit_log_path=_env_path("AUDIT_LOG_PATH", "data/command-history.jsonl", project_root),
+        runtime_image=os.environ.get("NIWAKI_RUNTIME_IMAGE", "niwaki:local"),
         docker_socket_path=os.environ.get("DOCKER_SOCKET_PATH", "/var/run/docker.sock"),
         docker_api_version=os.environ.get("DOCKER_API_VERSION", "v1.41"),
         traefik_network=os.environ.get("TRAEFIK_NETWORK", "proxy"),

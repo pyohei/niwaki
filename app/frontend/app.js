@@ -11,9 +11,11 @@ const state = {
   logs: "",
   audit: [],
   aliases: [],
+  system: null,
   registryStacks: [],
   gitCredential: null,
   actionOutputOverride: "",
+  systemActionOutput: "",
   sidebarCollapsed: window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "1",
 };
 
@@ -55,6 +57,9 @@ function parseRoute(pathname) {
   if (current === "/settings") {
     return { name: "settings" };
   }
+  if (current === "/system") {
+    return { name: "system" };
+  }
   if (current === "/aliases") {
     return { name: "aliases" };
   }
@@ -82,6 +87,8 @@ function routePath(route) {
       return appPath("/");
     case "settings":
       return appPath("/settings");
+    case "system":
+      return appPath("/system");
     case "aliases":
       return appPath("/aliases");
     case "stack":
@@ -395,6 +402,7 @@ function renderMainNav() {
   const root = document.getElementById("main-nav");
   const items = [
     { name: "overview", label: "Overview" },
+    { name: "system", label: "System" },
     { name: "settings", label: "Settings" },
     state.meta?.mdns_enabled ? { name: "aliases", label: "mDNS" } : null,
   ].filter(Boolean);
@@ -435,7 +443,7 @@ function renderStackSidebar() {
 function renderShellState() {
   const shell = document.getElementById("shell");
   const toggle = document.getElementById("sidebar-toggle");
-  const hideSidebar = state.route.name === "settings";
+  const hideSidebar = state.route.name === "settings" || state.route.name === "system";
   if (shell) {
     shell.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
     shell.classList.toggle("sidebar-hidden", hideSidebar);
@@ -649,7 +657,7 @@ function renderStackPage() {
                     : ""
                 }
                 <div class="inline-actions settings-form-wide">
-                  <button class="btn btn-sm btn-primary" type="submit">Generate Override</button>
+                  <button class="btn btn-sm btn-primary" type="submit">Generate + Up -d</button>
                 </div>
               </form>
             `
@@ -665,7 +673,7 @@ function renderStackPage() {
             ? `<p class="empty-state">${escapeHtml(state.detail.compose_services_error)}</p>`
             : `
               <form id="port-override-form" class="settings-form">
-                <p class="muted">override file を上書きして、service を host port に直接 publish します。Traefik Override とは併用ではなく切り替え前提です。</p>
+                <p class="muted">override file を上書きして、service を host port に直接 publish します。Traefik Override とは併用ではなく切り替え前提で、そのまま Up -d まで実行します。</p>
                 <label>
                   Service
                   <select class="select select-sm select-bordered w-full" id="port-override-service-input" name="service_name">
@@ -681,7 +689,7 @@ function renderStackPage() {
                   <input class="input input-sm input-bordered w-full" id="port-override-published-port-input" name="published_port" value="" placeholder="8081" required />
                 </label>
                 <div class="inline-actions settings-form-wide">
-                  <button class="btn btn-sm btn-secondary" type="submit">Generate Port Override</button>
+                  <button class="btn btn-sm btn-secondary" type="submit">Generate + Up -d</button>
                 </div>
               </form>
             `
@@ -761,6 +769,95 @@ function renderSettingsPage() {
   `;
 
   bindCredentialForm();
+}
+
+function renderSystemPage() {
+  const root = document.getElementById("page-content");
+  const jobs = state.system?.jobs || [];
+  root.innerHTML = `
+    <section class="page-header">
+      <div>
+        <p class="eyebrow">System</p>
+        <h2 class="page-title">Niwaki Runtime</h2>
+        <p class="page-copy">Niwaki 自身の更新と再起動を扱います。必要なら登録済み stack も順番に deploy してから runtime を更新します。</p>
+      </div>
+    </section>
+
+    <section class="page-grid">
+      <section class="panel">
+        <div class="panel-header">
+          <h2 class="text-lg font-semibold">Operations</h2>
+        </div>
+        <form id="system-action-form" class="settings-form">
+          <label>
+            Action
+            <select class="select select-sm select-bordered w-full" id="system-action-input" name="action">
+              <option value="restart">Restart Niwaki</option>
+              <option value="update">Update Niwaki</option>
+            </select>
+          </label>
+          <label class="label cursor-pointer justify-start gap-2 settings-form-wide">
+            <input class="checkbox checkbox-sm" id="system-rolling-update-input" name="rolling_update" type="checkbox" checked />
+            <span class="label-text">登録済み stack も rolling update する</span>
+          </label>
+          <p class="muted settings-form-wide">実行は detached job に逃がすので、Niwaki 自身の再起動中でもジョブは継続します。stack 更新は registry 順に <code>git pull</code> / <code>compose pull</code> / <code>up -d</code> を実行します。</p>
+          <div class="inline-actions settings-form-wide">
+            <button class="btn btn-sm btn-primary" type="submit">Run System Action</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2 class="text-lg font-semibold">Runtime</h2>
+        </div>
+        <div class="detail-meta">
+          <span>Primary URL: <code>${escapeHtml(state.meta?.base_url || "-")}</code></span>
+          <span>Runtime Root: <code>${escapeHtml(state.system?.runtime_root || state.meta?.runtime_root || "-")}</code></span>
+          <span>Stack Root: <code>${escapeHtml(state.system?.stack_root || state.meta?.stack_root || "-")}</code></span>
+          <span>Compose File: <code>${escapeHtml(state.system?.compose_file || "-")}</code></span>
+          <span>Available: <code>${escapeHtml(state.system?.available ? "true" : "false")}</code></span>
+        </div>
+      </section>
+    </section>
+
+    <section class="page-grid">
+      <section class="panel">
+        <div class="panel-header">
+          <h2 class="text-lg font-semibold">Active Jobs</h2>
+        </div>
+        <div class="history-list">
+          ${
+            jobs.length
+              ? jobs
+                  .map(
+                    (job) => `
+                      <article class="history-item">
+                        <header>
+                          <strong class="text-sm">${escapeHtml(job.name)}</strong>
+                          <span class="${statusClass(job.state)}">${escapeHtml(job.state || "unknown")}</span>
+                        </header>
+                        <p class="muted">${escapeHtml(job.action || "-")}</p>
+                        <p class="muted">${escapeHtml(job.status || "-")}</p>
+                      </article>
+                    `,
+                  )
+                  .join("")
+              : '<p class="empty-state">現在動いている system job はありません。</p>'
+          }
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2 class="text-lg font-semibold">Last Command</h2>
+        </div>
+        <pre class="code-block">${escapeHtml(state.systemActionOutput || "まだ実行していません。")}</pre>
+      </section>
+    </section>
+  `;
+
+  bindSystemActionForm();
 }
 
 function renderAliasesPage() {
@@ -868,6 +965,9 @@ function render() {
       break;
     case "settings":
       renderSettingsPage();
+      break;
+    case "system":
+      renderSystemPage();
       break;
     case "aliases":
       renderAliasesPage();
@@ -1068,6 +1168,34 @@ function bindCredentialForm() {
   }
 }
 
+function bindSystemActionForm() {
+  const form = document.getElementById("system-action-form");
+  if (!form) {
+    return;
+  }
+  form.addEventListener("submit", async (event) => {
+    try {
+      event.preventDefault();
+      const action = document.getElementById("system-action-input").value;
+      const rollingUpdate = Boolean(document.getElementById("system-rolling-update-input")?.checked);
+      if (!window.confirm(`system action ${action} を実行しますか？`)) {
+        return;
+      }
+      const result = await request(apiPath(`system/actions/${encodeURIComponent(action)}`), {
+        method: "POST",
+        body: JSON.stringify({
+          rolling_update: rollingUpdate,
+        }),
+      });
+      state.systemActionOutput = JSON.stringify(result, null, 2);
+      state.system = await request(apiPath("system"));
+      render();
+    } catch (error) {
+      handleError(error);
+    }
+  });
+}
+
 function bindAliasForm() {
   const form = document.getElementById("alias-form");
   if (form) {
@@ -1116,11 +1244,15 @@ async function loadCurrentPage() {
   ) {
     state.actionOutputOverride = "";
   }
+  if (state.route.name !== "system") {
+    state.systemActionOutput = "";
+  }
   state.detail = null;
   state.detailAudit = [];
   state.detailError = "";
   state.logs = "";
   state.aliases = [];
+  state.system = null;
 
   state.meta = await request(apiPath("meta"));
 
@@ -1136,6 +1268,10 @@ async function loadCurrentPage() {
   state.registryStacks = registryResponse.items || [];
   state.gitCredential = credentialResponse?.has_secret ? credentialResponse : null;
   state.audit = auditResponse.items || [];
+
+  if (state.route.name === "system") {
+    state.system = await request(apiPath("system"));
+  }
 
   if (state.route.name === "stack") {
     try {
