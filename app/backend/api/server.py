@@ -153,6 +153,8 @@ class NiwakiHandler(BaseHTTPRequestHandler):
                     target_port=str(payload.get("target_port") or "").strip(),
                     hostname=str(payload.get("hostname") or "").strip(),
                     create_alias=bool(payload.get("create_alias")),
+                    preset=str(payload.get("preset") or "").strip(),
+                    extra_environment=str(payload.get("extra_environment") or ""),
                 )
             except ValueError as exc:
                 raise ApiError(400, str(exc)) from exc

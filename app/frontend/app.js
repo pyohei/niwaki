@@ -312,6 +312,11 @@ function defaultHostnameForStack(stack) {
   return `${String(stack.id).toLowerCase()}.local`;
 }
 
+function defaultTraefikPresetForStack(stack) {
+  const firstService = stack?.compose_services?.[0]?.name || "";
+  return String(firstService).toLowerCase() === "homepage" ? "homepage" : "generic";
+}
+
 function serviceOptionsMarkup(services) {
   if (!services?.length) {
     return '<option value="">service を選べません</option>';
@@ -639,6 +644,13 @@ function renderStackPage() {
                   </select>
                 </label>
                 <label>
+                  Preset
+                  <select class="select select-sm select-bordered w-full" id="traefik-preset-input" name="preset">
+                    <option value="generic" ${defaultTraefikPresetForStack(state.detail) === "generic" ? "selected" : ""}>Generic</option>
+                    <option value="homepage" ${defaultTraefikPresetForStack(state.detail) === "homepage" ? "selected" : ""}>Homepage</option>
+                  </select>
+                </label>
+                <label>
                   Internal Port
                   <input class="input input-sm input-bordered w-full" id="traefik-port-input" name="target_port" value="${escapeHtml(state.detail.compose_services?.[0]?.preferred_port || state.detail.compose_services?.[0]?.ports?.[0] || "")}" placeholder="3000" required />
                 </label>
@@ -656,8 +668,13 @@ function renderStackPage() {
                     `
                     : ""
                 }
+                <label class="settings-form-wide">
+                  Extra Environment
+                  <textarea class="textarea textarea-sm textarea-bordered min-h-20 w-full" id="traefik-extra-environment-input" name="extra_environment" placeholder="KEY=value&#10;ANOTHER_KEY=value"></textarea>
+                </label>
+                <p class="muted settings-form-wide">再実行すると override file を再作成します。Homepage preset を選ぶと <code>HOMEPAGE_ALLOWED_HOSTS</code> を自動で入れます。</p>
                 <div class="inline-actions settings-form-wide">
-                  <button class="btn btn-sm btn-primary" type="submit">Generate + Up -d</button>
+                  <button class="btn btn-sm btn-primary" type="submit">Generate / Recreate + Up -d</button>
                 </div>
               </form>
             `
@@ -1059,6 +1076,7 @@ function bindTraefikOverrideForm() {
     return;
   }
   const serviceInput = document.getElementById("traefik-service-input");
+  const presetInput = document.getElementById("traefik-preset-input");
   const portInput = document.getElementById("traefik-port-input");
 
   if (serviceInput && portInput) {
@@ -1068,6 +1086,9 @@ function bindTraefikOverrideForm() {
       if (defaultPort) {
         portInput.value = defaultPort;
       }
+      if (presetInput) {
+        presetInput.value = serviceInput.value === "homepage" ? "homepage" : "generic";
+      }
     });
   }
 
@@ -1076,9 +1097,11 @@ function bindTraefikOverrideForm() {
       event.preventDefault();
       const payload = {
         service_name: document.getElementById("traefik-service-input").value,
+        preset: document.getElementById("traefik-preset-input").value,
         target_port: document.getElementById("traefik-port-input").value,
         hostname: document.getElementById("traefik-hostname-input").value,
         create_alias: Boolean(document.getElementById("traefik-create-alias-input")?.checked),
+        extra_environment: document.getElementById("traefik-extra-environment-input").value,
       };
       const result = await request(apiPath(`stacks/${encodeURIComponent(state.detail.id)}/override/traefik`), {
         method: "POST",
