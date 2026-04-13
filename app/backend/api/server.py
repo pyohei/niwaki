@@ -147,6 +147,7 @@ class NiwakiHandler(BaseHTTPRequestHandler):
             stack = self._resolve_stack(stack_id)
             payload = read_json_body(self)
             try:
+                teardown_record = self.server.services.deploy_service.run_action(stack, "down")
                 override = self.server.services.override_service.generate_traefik_override(
                     stack,
                     service_name=str(payload.get("service_name") or "").strip(),
@@ -160,13 +161,14 @@ class NiwakiHandler(BaseHTTPRequestHandler):
                 raise ApiError(400, str(exc)) from exc
             updated_stack = self._resolve_stack(stack_id)
             apply_record = self.server.services.deploy_service.run_action(updated_stack, "up")
-            json_response(self, {"override": override, "apply": apply_record}, 202)
+            json_response(self, {"teardown": teardown_record, "override": override, "apply": apply_record}, 202)
             return
         if path.startswith("/api/stacks/") and path.endswith("/override/port"):
             stack_id = path.split("/")[3]
             stack = self._resolve_stack(stack_id)
             payload = read_json_body(self)
             try:
+                teardown_record = self.server.services.deploy_service.run_action(stack, "down")
                 override = self.server.services.override_service.generate_port_override(
                     stack,
                     service_name=str(payload.get("service_name") or "").strip(),
@@ -177,7 +179,7 @@ class NiwakiHandler(BaseHTTPRequestHandler):
                 raise ApiError(400, str(exc)) from exc
             updated_stack = self._resolve_stack(stack_id)
             apply_record = self.server.services.deploy_service.run_action(updated_stack, "up")
-            json_response(self, {"override": override, "apply": apply_record}, 202)
+            json_response(self, {"teardown": teardown_record, "override": override, "apply": apply_record}, 202)
             return
         if path.startswith("/api/system/actions/"):
             action = path.rsplit("/", 1)[1]

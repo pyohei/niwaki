@@ -672,9 +672,9 @@ function renderStackPage() {
                   Extra Environment
                   <textarea class="textarea textarea-sm textarea-bordered min-h-20 w-full" id="traefik-extra-environment-input" name="extra_environment" placeholder="KEY=value&#10;ANOTHER_KEY=value"></textarea>
                 </label>
-                <p class="muted settings-form-wide">再実行すると override file を再作成します。Homepage preset を選ぶと <code>HOMEPAGE_ALLOWED_HOSTS</code> を自動で入れます。</p>
+                <p class="muted settings-form-wide">実行すると <code>down</code> → override 再作成 → <code>up -d</code> を順番に行います。Homepage preset を選ぶと <code>HOMEPAGE_ALLOWED_HOSTS</code> を自動で入れます。</p>
                 <div class="inline-actions settings-form-wide">
-                  <button class="btn btn-sm btn-primary" type="submit">Generate / Recreate + Up -d</button>
+                  <button class="btn btn-sm btn-primary" type="submit">Down + Recreate + Up -d</button>
                 </div>
               </form>
             `
@@ -690,7 +690,7 @@ function renderStackPage() {
             ? `<p class="empty-state">${escapeHtml(state.detail.compose_services_error)}</p>`
             : `
               <form id="port-override-form" class="settings-form">
-                <p class="muted">override file を上書きして、service を host port に直接 publish します。Traefik Override とは併用ではなく切り替え前提で、そのまま Up -d まで実行します。</p>
+                <p class="muted">override file を上書きして、service を host port に直接 publish します。Traefik Override とは併用ではなく切り替え前提で、<code>down</code> → override 再作成 → <code>up -d</code> を実行します。</p>
                 <label>
                   Service
                   <select class="select select-sm select-bordered w-full" id="port-override-service-input" name="service_name">
@@ -706,7 +706,7 @@ function renderStackPage() {
                   <input class="input input-sm input-bordered w-full" id="port-override-published-port-input" name="published_port" value="" placeholder="8081" required />
                 </label>
                 <div class="inline-actions settings-form-wide">
-                  <button class="btn btn-sm btn-secondary" type="submit">Generate + Up -d</button>
+                  <button class="btn btn-sm btn-secondary" type="submit">Down + Recreate + Up -d</button>
                 </div>
               </form>
             `
