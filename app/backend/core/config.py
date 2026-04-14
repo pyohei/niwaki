@@ -119,7 +119,7 @@ def load_config() -> AppConfig:
         audit_log_path=_env_path("AUDIT_LOG_PATH", "data/command-history.jsonl", project_root),
         runtime_image=os.environ.get("NIWAKI_RUNTIME_IMAGE", "niwaki:local"),
         docker_socket_path=os.environ.get("DOCKER_SOCKET_PATH", "/var/run/docker.sock"),
-        docker_api_version=os.environ.get("DOCKER_API_VERSION", "v1.41"),
+        docker_api_version=os.environ.get("DOCKER_API_VERSION", "v1.44"),
         traefik_network=os.environ.get("TRAEFIK_NETWORK", "proxy"),
         traefik_entrypoint=os.environ.get("TRAEFIK_ENTRYPOINT", "web"),
         mdns_enabled=_env_bool("MDNS_ENABLED", True),
