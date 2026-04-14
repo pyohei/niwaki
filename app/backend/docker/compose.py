@@ -38,8 +38,8 @@ class ComposeService:
             return json.loads(raw)
         return [json.loads(line) for line in raw.splitlines() if line.strip()]
 
-    def discover_services(self, stack: StackDefinition) -> list[dict[str, Any]]:
-        result = self._run(stack, "config", "--format", "json")
+    def discover_services(self, stack: StackDefinition, *, include_override: bool = True) -> list[dict[str, Any]]:
+        result = self._run(stack, "config", "--format", "json", include_override=include_override)
         if result.exit_code != 0:
             raise RuntimeError(result.output)
         raw = result.stdout.strip()
@@ -87,9 +87,10 @@ class ComposeService:
         services.sort(key=lambda item: item["name"])
         return services
 
-    def _run(self, stack: StackDefinition, *args: str) -> CommandResult:
+    def _run(self, stack: StackDefinition, *args: str, include_override: bool = True) -> CommandResult:
         command = ["docker", "compose"]
-        for compose_file in stack.compose_files():
+        compose_files = stack.compose_files() if include_override else (stack.compose_file,)
+        for compose_file in compose_files:
             command.extend(["-f", compose_file])
         command.extend(args)
         return run_command(command, cwd=str(stack.cwd))

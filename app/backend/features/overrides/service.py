@@ -38,7 +38,7 @@ class OverrideService:
         homepage_href: str = "",
         homepage_description: str = "",
     ) -> dict:
-        discovered = self._compose.discover_services(stack)
+        discovered = self._compose.discover_services(stack, include_override=False)
         service_config = next((item for item in discovered if item["name"] == service_name), None)
         if service_config is None:
             raise ValueError(f"Unknown service: {service_name}")
@@ -117,7 +117,7 @@ class OverrideService:
         target_port: str,
         published_port: str,
     ) -> dict:
-        discovered = self._compose.discover_services(stack)
+        discovered = self._compose.discover_services(stack, include_override=False)
         known_services = {item["name"] for item in discovered}
         if service_name not in known_services:
             raise ValueError(f"Unknown service: {service_name}")
