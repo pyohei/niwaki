@@ -39,8 +39,8 @@ class OverrideService:
         homepage_description: str = "",
     ) -> dict:
         discovered = self._compose.discover_services(stack)
-        known_services = {item["name"] for item in discovered}
-        if service_name not in known_services:
+        service_config = next((item for item in discovered if item["name"] == service_name), None)
+        if service_config is None:
             raise ValueError(f"Unknown service: {service_name}")
 
         port = str(target_port or "").strip()
@@ -62,6 +62,7 @@ class OverrideService:
             href=homepage_href,
             description=homepage_description,
         )
+        service_networks = self._merge_networks(service_config.get("networks") or [])
         override_path = Path(stack.override_file)
         override_path.parent.mkdir(parents=True, exist_ok=True)
         override_path.write_text(
@@ -70,6 +71,7 @@ class OverrideService:
                 port,
                 normalized_host,
                 route_name,
+                service_networks=service_networks,
                 environment_items=environment_items,
                 homepage_label_items=label_items,
             ),
@@ -184,6 +186,7 @@ class OverrideService:
         hostname: str,
         route_name: str,
         *,
+        service_networks: list[str],
         environment_items: list[tuple[str, str]],
         homepage_label_items: list[tuple[str, str]],
     ) -> str:
@@ -193,6 +196,7 @@ class OverrideService:
                 f"      {key}: {self._yaml_quote(value)}" for key, value in environment_items
             )
             environment_block = f"    environment:\n{environment_lines}\n"
+        network_lines = "\n".join(f"      - {network}" for network in service_networks)
         homepage_lines = "\n".join(
             f"      {key}: {self._yaml_quote(value)}" for key, value in homepage_label_items
         )
@@ -205,7 +209,7 @@ services:
     expose:
       - "{target_port}"
 {environment_block}    networks:
-      - {self._config.traefik_network}
+{network_lines}
     labels:
       traefik.enable: "true"
       traefik.docker.network: "{self._config.traefik_network}"
@@ -282,6 +286,15 @@ networks:
     def _yaml_quote(value: str) -> str:
         escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
         return f'"{escaped}"'
+
+    def _merge_networks(self, existing_networks: list[str]) -> list[str]:
+        ordered: list[str] = []
+        for network in [*existing_networks, self._config.traefik_network]:
+            normalized = str(network or "").strip()
+            if not normalized or normalized in ordered:
+                continue
+            ordered.append(normalized)
+        return ordered or [self._config.traefik_network]
 
     @staticmethod
     def _render_port_override(service_name: str, published_port: str, target_port: str) -> str:

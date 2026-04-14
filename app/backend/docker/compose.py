@@ -50,6 +50,7 @@ class ComposeService:
         for name, config in (payload.get("services") or {}).items():
             published_ports: set[str] = set()
             exposed_ports: set[str] = set()
+            network_names = sorted((config.get("networks") or {}).keys())
             for port in config.get("ports") or []:
                 if isinstance(port, dict) and port.get("target"):
                     published_ports.add(str(port["target"]))
@@ -80,6 +81,7 @@ class ComposeService:
                     if preferred_ports
                     else "",
                     "has_published_ports": bool(published_ports),
+                    "networks": network_names,
                 }
             )
         services.sort(key=lambda item: item["name"])
