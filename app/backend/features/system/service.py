@@ -132,7 +132,7 @@ class SystemService:
             "echo '==> update runtime: niwaki'",
             f"cd {root}",
         ]
-        if action == "update":
+        if action in {"restart", "update"}:
             lines.append("if [ -d .git ]; then git fetch --prune && git pull --ff-only; fi")
         lines.append("docker compose up -d --build")
         return lines

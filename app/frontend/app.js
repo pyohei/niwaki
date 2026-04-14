@@ -912,20 +912,17 @@ function renderSystemPage() {
           <h2 class="text-lg font-semibold">Operations</h2>
         </div>
         <form id="system-action-form" class="settings-form">
-          <label>
-            Action
-            <select class="select select-sm select-bordered w-full" id="system-action-input" name="action">
-              <option value="restart">Restart Niwaki</option>
-              <option value="update">Update Niwaki</option>
-            </select>
-          </label>
+          <div class="settings-form-wide">
+            <p class="muted"><code>Update Niwaki</code> も <code>Restart Niwaki</code> も、Niwaki 自身で <code>git fetch</code> / <code>git pull --ff-only</code> を実行してから再 build します。現状は実質どちらも同じ更新動作です。</p>
+          </div>
           <label class="label cursor-pointer justify-start gap-2 settings-form-wide">
             <input class="checkbox checkbox-sm" id="system-rolling-update-input" name="rolling_update" type="checkbox" checked />
             <span class="label-text">登録済み stack も rolling update する</span>
           </label>
           <p class="muted settings-form-wide">実行は detached job に逃がすので、Niwaki 自身の再起動中でもジョブは継続します。stack 更新は registry 順に <code>git pull</code> / <code>compose pull</code> / <code>up -d</code> を実行します。</p>
           <div class="inline-actions settings-form-wide">
-            <button class="btn btn-sm btn-primary" type="submit">Run System Action</button>
+            <button class="btn btn-sm btn-primary" type="submit" name="action" value="update">Update Niwaki</button>
+            <button class="btn btn-sm btn-secondary" type="submit" name="action" value="restart">Restart Niwaki</button>
           </div>
         </form>
       </section>
@@ -1321,9 +1318,10 @@ function bindSystemActionForm() {
   form.addEventListener("submit", async (event) => {
     try {
       event.preventDefault();
-      const action = document.getElementById("system-action-input").value;
+      const action = event.submitter?.value || "update";
       const rollingUpdate = Boolean(document.getElementById("system-rolling-update-input")?.checked);
-      if (!window.confirm(`system action ${action} を実行しますか？`)) {
+      const label = action === "update" ? "Update Niwaki" : "Restart Niwaki";
+      if (!window.confirm(`${label} を実行しますか？`)) {
         return;
       }
       const result = await request(apiPath(`system/actions/${encodeURIComponent(action)}`), {
