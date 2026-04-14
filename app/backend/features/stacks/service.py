@@ -6,11 +6,19 @@ from ...stacks.registry import StackRegistry
 
 
 class StackService:
-    def __init__(self, registry: StackRegistry, compose_service: ComposeService, git_service: GitService, audit_store: AuditStore):
+    def __init__(
+        self,
+        registry: StackRegistry,
+        compose_service: ComposeService,
+        git_service: GitService,
+        audit_store: AuditStore,
+        override_service=None,
+    ):
         self._registry = registry
         self._compose = compose_service
         self._git = git_service
         self._audit = audit_store
+        self._override = override_service
 
     def list_stacks(self) -> list[dict]:
         return [self._serialize_stack(stack) for stack in self._registry.load()]
@@ -27,6 +35,7 @@ class StackService:
         compose_error = ""
         compose_services = []
         compose_services_error = ""
+        current_override = {}
         try:
             containers = self._compose.ps(stack)
         except Exception as exc:
@@ -35,6 +44,11 @@ class StackService:
             compose_services = self._compose.discover_services(stack)
         except Exception as exc:
             compose_services_error = str(exc)
+        if self._override is not None:
+            try:
+                current_override = self._override.describe_override(stack)
+            except Exception:
+                current_override = {}
         last_action = self._audit.last_for_stack(stack.id)
         return {
             "id": stack.id,
@@ -55,6 +69,7 @@ class StackService:
             "compose_error": compose_error,
             "compose_services": compose_services,
             "compose_services_error": compose_services_error,
+            "current_override": current_override,
             "last_action": last_action,
             "logs_included": include_logs,
         }

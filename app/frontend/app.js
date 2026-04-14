@@ -306,35 +306,109 @@ function stackLinksMarkup(stack) {
 }
 
 function defaultHostnameForStack(stack) {
+  const currentOverride = currentTraefikOverride(stack);
+  if (currentOverride?.hostname) {
+    return currentOverride.hostname;
+  }
   if (!stack?.id) {
     return "app.local";
   }
   return `${String(stack.id).toLowerCase()}.local`;
 }
 
+function currentTraefikOverride(stack) {
+  return stack?.current_override?.kind === "traefik" ? stack.current_override : null;
+}
+
+function currentPortOverride(stack) {
+  return stack?.current_override?.kind === "port" ? stack.current_override : null;
+}
+
 function defaultTraefikPresetForStack(stack) {
+  const currentOverride = currentTraefikOverride(stack);
+  if (currentOverride?.preset) {
+    return currentOverride.preset;
+  }
   const firstService = stack?.compose_services?.[0]?.name || "";
   return String(firstService).toLowerCase() === "homepage" ? "homepage" : "generic";
 }
 
+function defaultTraefikServiceForStack(stack) {
+  return currentTraefikOverride(stack)?.service_name || stack?.compose_services?.[0]?.name || "";
+}
+
+function defaultTraefikPortForStack(stack) {
+  const currentOverride = currentTraefikOverride(stack);
+  if (currentOverride?.target_port) {
+    return currentOverride.target_port;
+  }
+  return stack?.compose_services?.[0]?.preferred_port || stack?.compose_services?.[0]?.ports?.[0] || "";
+}
+
+function defaultTraefikExtraEnvironment(stack) {
+  return currentTraefikOverride(stack)?.extra_environment || "";
+}
+
+function defaultHomepageEnabledForStack(stack) {
+  const currentOverride = currentTraefikOverride(stack);
+  if (currentOverride) {
+    return Boolean(currentOverride.homepage_enabled);
+  }
+  return true;
+}
+
+function defaultHomepageGroupForStack(stack) {
+  return currentTraefikOverride(stack)?.homepage_group || "Apps";
+}
+
 function defaultHomepageCardName(stack) {
-  return stack?.name || stack?.id || "";
+  return currentTraefikOverride(stack)?.homepage_name || stack?.name || stack?.id || "";
 }
 
 function defaultHomepageCardHref(stack) {
+  const currentOverride = currentTraefikOverride(stack);
+  if (currentOverride?.homepage_href) {
+    return currentOverride.homepage_href;
+  }
   return `http://${defaultHostnameForStack(stack)}/`;
 }
 
-function serviceOptionsMarkup(services) {
+function defaultHomepageIconForStack(stack) {
+  return currentTraefikOverride(stack)?.homepage_icon || "";
+}
+
+function defaultHomepageDescriptionForStack(stack) {
+  return currentTraefikOverride(stack)?.homepage_description || "";
+}
+
+function defaultPortOverrideServiceForStack(stack) {
+  return currentPortOverride(stack)?.service_name || stack?.compose_services?.[0]?.name || "";
+}
+
+function defaultPortOverrideTargetPort(stack) {
+  const currentOverride = currentPortOverride(stack);
+  if (currentOverride?.target_port) {
+    return currentOverride.target_port;
+  }
+  return stack?.compose_services?.[0]?.preferred_port || stack?.compose_services?.[0]?.ports?.[0] || "";
+}
+
+function defaultPortOverridePublishedPort(stack) {
+  return currentPortOverride(stack)?.published_port || "";
+}
+
+function serviceOptionsMarkup(services, selectedName = "") {
   if (!services?.length) {
     return '<option value="">service を選べません</option>';
   }
   return services
     .map((service, index) => {
       const defaultPort = service.preferred_port || service.ports?.[0] || "";
-      const selected = index === 0 ? "selected" : "";
+      const selected = selectedName
+        ? service.name === selectedName
+        : index === 0;
       const labelSuffix = service.ports?.length ? ` (${service.ports.join(", ")})` : "";
-      return `<option value="${escapeHtml(service.name)}" data-default-port="${escapeHtml(defaultPort)}" ${selected}>${escapeHtml(service.name + labelSuffix)}</option>`;
+      return `<option value="${escapeHtml(service.name)}" data-default-port="${escapeHtml(defaultPort)}" ${selected ? "selected" : ""}>${escapeHtml(service.name + labelSuffix)}</option>`;
     })
     .join("");
 }
@@ -648,7 +722,7 @@ function renderStackPage() {
                 <label>
                   Service
                   <select class="select select-sm select-bordered w-full" id="traefik-service-input" name="service_name">
-                    ${serviceOptionsMarkup(state.detail.compose_services || [])}
+                    ${serviceOptionsMarkup(state.detail.compose_services || [], defaultTraefikServiceForStack(state.detail))}
                   </select>
                 </label>
                 <label>
@@ -660,7 +734,7 @@ function renderStackPage() {
                 </label>
                 <label>
                   Internal Port
-                  <input class="input input-sm input-bordered w-full" id="traefik-port-input" name="target_port" value="${escapeHtml(state.detail.compose_services?.[0]?.preferred_port || state.detail.compose_services?.[0]?.ports?.[0] || "")}" placeholder="3000" required />
+                  <input class="input input-sm input-bordered w-full" id="traefik-port-input" name="target_port" value="${escapeHtml(defaultTraefikPortForStack(state.detail))}" placeholder="3000" required />
                 </label>
                 <label>
                   Hostname
@@ -678,15 +752,15 @@ function renderStackPage() {
                 }
                 <label class="settings-form-wide">
                   Extra Environment
-                  <textarea class="textarea textarea-sm textarea-bordered min-h-20 w-full" id="traefik-extra-environment-input" name="extra_environment" placeholder="KEY=value&#10;ANOTHER_KEY=value"></textarea>
+                  <textarea class="textarea textarea-sm textarea-bordered min-h-20 w-full" id="traefik-extra-environment-input" name="extra_environment" placeholder="KEY=value&#10;ANOTHER_KEY=value">${escapeHtml(defaultTraefikExtraEnvironment(state.detail))}</textarea>
                 </label>
                 <label class="label cursor-pointer justify-start gap-2 settings-form-wide">
-                  <input class="checkbox checkbox-sm" id="homepage-enabled-input" name="homepage_enabled" type="checkbox" checked />
+                  <input class="checkbox checkbox-sm" id="homepage-enabled-input" name="homepage_enabled" type="checkbox" ${defaultHomepageEnabledForStack(state.detail) ? "checked" : ""} />
                   <span class="label-text">Homepage listing labels も付ける</span>
                 </label>
                 <label>
                   Homepage Group
-                  <input class="input input-sm input-bordered w-full" id="homepage-group-input" name="homepage_group" value="Apps" placeholder="Apps" />
+                  <input class="input input-sm input-bordered w-full" id="homepage-group-input" name="homepage_group" value="${escapeHtml(defaultHomepageGroupForStack(state.detail))}" placeholder="Apps" />
                 </label>
                 <label>
                   Homepage Name
@@ -694,7 +768,7 @@ function renderStackPage() {
                 </label>
                 <label>
                   Homepage Icon
-                  <input class="input input-sm input-bordered w-full" id="homepage-icon-input" name="homepage_icon" value="" placeholder="mdi-monitor-dashboard" />
+                  <input class="input input-sm input-bordered w-full" id="homepage-icon-input" name="homepage_icon" value="${escapeHtml(defaultHomepageIconForStack(state.detail))}" placeholder="mdi-monitor-dashboard" />
                 </label>
                 <label>
                   Homepage Href
@@ -702,7 +776,7 @@ function renderStackPage() {
                 </label>
                 <label class="settings-form-wide">
                   Homepage Description
-                  <input class="input input-sm input-bordered w-full" id="homepage-description-input" name="homepage_description" value="" placeholder="Main app" />
+                  <input class="input input-sm input-bordered w-full" id="homepage-description-input" name="homepage_description" value="${escapeHtml(defaultHomepageDescriptionForStack(state.detail))}" placeholder="Main app" />
                 </label>
                 <p class="muted settings-form-wide">実行すると <code>down</code> → override 再作成 → <code>up -d</code> を順番に行います。Homepage preset を選ぶと <code>HOMEPAGE_ALLOWED_HOSTS</code> を自動で入れます。</p>
                 <div class="inline-actions settings-form-wide">
@@ -726,16 +800,16 @@ function renderStackPage() {
                 <label>
                   Service
                   <select class="select select-sm select-bordered w-full" id="port-override-service-input" name="service_name">
-                    ${serviceOptionsMarkup(state.detail.compose_services || [])}
+                    ${serviceOptionsMarkup(state.detail.compose_services || [], defaultPortOverrideServiceForStack(state.detail))}
                   </select>
                 </label>
                 <label>
                   Internal Port
-                  <input class="input input-sm input-bordered w-full" id="port-override-target-port-input" name="target_port" value="${escapeHtml(state.detail.compose_services?.[0]?.preferred_port || state.detail.compose_services?.[0]?.ports?.[0] || "")}" placeholder="3000" required />
+                  <input class="input input-sm input-bordered w-full" id="port-override-target-port-input" name="target_port" value="${escapeHtml(defaultPortOverrideTargetPort(state.detail))}" placeholder="3000" required />
                 </label>
                 <label>
                   Published Port
-                  <input class="input input-sm input-bordered w-full" id="port-override-published-port-input" name="published_port" value="" placeholder="8081" required />
+                  <input class="input input-sm input-bordered w-full" id="port-override-published-port-input" name="published_port" value="${escapeHtml(defaultPortOverridePublishedPort(state.detail))}" placeholder="8081" required />
                 </label>
                 <div class="inline-actions settings-form-wide">
                   <button class="btn btn-sm btn-secondary" type="submit">Down + Recreate + Up -d</button>

@@ -154,6 +154,20 @@ class OverrideService:
             "published_port": published,
         }
 
+    def describe_override(self, stack: StackDefinition) -> dict:
+        override_file = str(stack.override_file or "").strip()
+        if not override_file:
+            return {}
+        override_path = Path(override_file)
+        if not override_path.is_file():
+            return {}
+        raw = override_path.read_text(encoding="utf-8")
+        if "Traefik override generator." in raw:
+            return self._describe_traefik_override(raw)
+        if "direct port override generator." in raw:
+            return self._describe_port_override(raw)
+        return {}
+
     def _normalize_hostname(self, value: str) -> str:
         hostname = value.strip().lower()
         if not hostname:
@@ -287,6 +301,13 @@ networks:
         escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
         return f'"{escaped}"'
 
+    @staticmethod
+    def _yaml_unquote(value: str) -> str:
+        raw = str(value or "").strip()
+        if len(raw) >= 2 and raw[0] == raw[-1] == '"':
+            raw = raw[1:-1]
+        return raw.replace('\\"', '"').replace("\\\\", "\\")
+
     def _merge_networks(self, existing_networks: list[str]) -> list[str]:
         ordered: list[str] = []
         for network in [*existing_networks, self._config.traefik_network]:
@@ -305,3 +326,82 @@ services:
     ports: !override
       - "{published_port}:{target_port}"
 """
+
+    def _describe_traefik_override(self, raw: str) -> dict:
+        service_name = self._extract_service_name(raw)
+        labels = self._extract_mapping_block(raw, "labels")
+        environment = self._extract_mapping_block(raw, "environment")
+        hostname = ""
+        router_rule = next((value for key, value in labels.items() if key.endswith(".rule")), "")
+        route_match = re.search(r"Host\(`([^`]+)`\)", router_rule)
+        if route_match:
+            hostname = route_match.group(1)
+        target_port = next(
+            (
+                value
+                for key, value in labels.items()
+                if key.endswith(".loadbalancer.server.port")
+            ),
+            "",
+        )
+        if not target_port:
+            target_port = self._extract_exposed_port(raw)
+        preset = "homepage" if "HOMEPAGE_ALLOWED_HOSTS" in environment else "generic"
+        extra_environment = "\n".join(
+            f"{key}={value}"
+            for key, value in environment.items()
+            if not (preset == "homepage" and key == "HOMEPAGE_ALLOWED_HOSTS")
+        )
+        homepage_enabled = any(key.startswith("homepage.") for key in labels)
+        return {
+            "kind": "traefik",
+            "service_name": service_name,
+            "target_port": target_port,
+            "hostname": hostname,
+            "preset": preset,
+            "extra_environment": extra_environment,
+            "homepage_enabled": homepage_enabled,
+            "homepage_group": labels.get("homepage.group", ""),
+            "homepage_name": labels.get("homepage.name", ""),
+            "homepage_icon": labels.get("homepage.icon", ""),
+            "homepage_href": labels.get("homepage.href", ""),
+            "homepage_description": labels.get("homepage.description", ""),
+        }
+
+    def _describe_port_override(self, raw: str) -> dict:
+        service_name = self._extract_service_name(raw)
+        match = re.search(r'^      - "([^":]+):([^"]+)"$', raw, re.MULTILINE)
+        if not match:
+            return {"kind": "port", "service_name": service_name}
+        return {
+            "kind": "port",
+            "service_name": service_name,
+            "published_port": match.group(1),
+            "target_port": match.group(2),
+        }
+
+    @staticmethod
+    def _extract_service_name(raw: str) -> str:
+        match = re.search(r"^services:\n  ([^:\n]+):", raw, re.MULTILINE)
+        return match.group(1) if match else ""
+
+    def _extract_mapping_block(self, raw: str, block_name: str) -> dict[str, str]:
+        match = re.search(
+            rf"^    {re.escape(block_name)}:\n((?:^      [^\n]+\n)+)",
+            raw,
+            re.MULTILINE,
+        )
+        if not match:
+            return {}
+        items: dict[str, str] = {}
+        for line in match.group(1).splitlines():
+            key, _, value = line.strip().partition(":")
+            if not key or not _:
+                continue
+            items[key.strip()] = self._yaml_unquote(value.strip())
+        return items
+
+    @staticmethod
+    def _extract_exposed_port(raw: str) -> str:
+        match = re.search(r'^      - "([^"]+)"$', raw, re.MULTILINE)
+        return match.group(1) if match else ""

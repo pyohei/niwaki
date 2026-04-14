@@ -329,7 +329,9 @@ def build_services(config: AppConfig) -> AppServices:
     network_service = DockerNetworkService()
     git_service = GitService(config.git_pull_flags, credential_store)
     docker_api = DockerAPIClient(config.docker_socket_path, config.docker_api_version)
-    stack_service = StackService(registry, compose_service, git_service, audit_store)
+    mdns_service = MdnsService(config, docker_api)
+    override_service = OverrideService(config, registry, compose_service, mdns_service)
+    stack_service = StackService(registry, compose_service, git_service, audit_store, override_service)
     deploy_service = DeployService(
         compose_service,
         network_service,
@@ -339,8 +341,6 @@ def build_services(config: AppConfig) -> AppServices:
         config.traefik_network,
     )
     logs_service = LogsService(compose_service, config.command_output_max_lines)
-    mdns_service = MdnsService(config, docker_api)
-    override_service = OverrideService(config, registry, compose_service, mdns_service)
     system_service = SystemService(config, registry, docker_api)
     settings_service = SettingsService(registry, credential_store)
     return AppServices(
