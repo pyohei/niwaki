@@ -317,6 +317,14 @@ function defaultTraefikPresetForStack(stack) {
   return String(firstService).toLowerCase() === "homepage" ? "homepage" : "generic";
 }
 
+function defaultHomepageCardName(stack) {
+  return stack?.name || stack?.id || "";
+}
+
+function defaultHomepageCardHref(stack) {
+  return `http://${defaultHostnameForStack(stack)}/`;
+}
+
 function serviceOptionsMarkup(services) {
   if (!services?.length) {
     return '<option value="">service を選べません</option>';
@@ -671,6 +679,30 @@ function renderStackPage() {
                 <label class="settings-form-wide">
                   Extra Environment
                   <textarea class="textarea textarea-sm textarea-bordered min-h-20 w-full" id="traefik-extra-environment-input" name="extra_environment" placeholder="KEY=value&#10;ANOTHER_KEY=value"></textarea>
+                </label>
+                <label class="label cursor-pointer justify-start gap-2 settings-form-wide">
+                  <input class="checkbox checkbox-sm" id="homepage-enabled-input" name="homepage_enabled" type="checkbox" checked />
+                  <span class="label-text">Homepage listing labels も付ける</span>
+                </label>
+                <label>
+                  Homepage Group
+                  <input class="input input-sm input-bordered w-full" id="homepage-group-input" name="homepage_group" value="Apps" placeholder="Apps" />
+                </label>
+                <label>
+                  Homepage Name
+                  <input class="input input-sm input-bordered w-full" id="homepage-name-input" name="homepage_name" value="${escapeHtml(defaultHomepageCardName(state.detail))}" placeholder="Uptime Kuma" />
+                </label>
+                <label>
+                  Homepage Icon
+                  <input class="input input-sm input-bordered w-full" id="homepage-icon-input" name="homepage_icon" value="" placeholder="mdi-monitor-dashboard" />
+                </label>
+                <label>
+                  Homepage Href
+                  <input class="input input-sm input-bordered w-full" id="homepage-href-input" name="homepage_href" value="${escapeHtml(defaultHomepageCardHref(state.detail))}" placeholder="http://genkan.local/" />
+                </label>
+                <label class="settings-form-wide">
+                  Homepage Description
+                  <input class="input input-sm input-bordered w-full" id="homepage-description-input" name="homepage_description" value="" placeholder="Main app" />
                 </label>
                 <p class="muted settings-form-wide">実行すると <code>down</code> → override 再作成 → <code>up -d</code> を順番に行います。Homepage preset を選ぶと <code>HOMEPAGE_ALLOWED_HOSTS</code> を自動で入れます。</p>
                 <div class="inline-actions settings-form-wide">
@@ -1078,6 +1110,8 @@ function bindTraefikOverrideForm() {
   const serviceInput = document.getElementById("traefik-service-input");
   const presetInput = document.getElementById("traefik-preset-input");
   const portInput = document.getElementById("traefik-port-input");
+  const hostnameInput = document.getElementById("traefik-hostname-input");
+  const homepageHrefInput = document.getElementById("homepage-href-input");
 
   if (serviceInput && portInput) {
     serviceInput.addEventListener("change", () => {
@@ -1092,6 +1126,14 @@ function bindTraefikOverrideForm() {
     });
   }
 
+  if (hostnameInput && homepageHrefInput) {
+    hostnameInput.addEventListener("change", () => {
+      if (!homepageHrefInput.value || homepageHrefInput.value === defaultHomepageCardHref(state.detail)) {
+        homepageHrefInput.value = `http://${hostnameInput.value.replace(/\/+$/, "")}/`;
+      }
+    });
+  }
+
   form.addEventListener("submit", async (event) => {
     try {
       event.preventDefault();
@@ -1102,6 +1144,12 @@ function bindTraefikOverrideForm() {
         hostname: document.getElementById("traefik-hostname-input").value,
         create_alias: Boolean(document.getElementById("traefik-create-alias-input")?.checked),
         extra_environment: document.getElementById("traefik-extra-environment-input").value,
+        homepage_enabled: Boolean(document.getElementById("homepage-enabled-input")?.checked),
+        homepage_group: document.getElementById("homepage-group-input").value,
+        homepage_name: document.getElementById("homepage-name-input").value,
+        homepage_icon: document.getElementById("homepage-icon-input").value,
+        homepage_href: document.getElementById("homepage-href-input").value,
+        homepage_description: document.getElementById("homepage-description-input").value,
       };
       const result = await request(apiPath(`stacks/${encodeURIComponent(state.detail.id)}/override/traefik`), {
         method: "POST",

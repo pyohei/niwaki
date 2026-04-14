@@ -156,6 +156,12 @@ class NiwakiHandler(BaseHTTPRequestHandler):
                     create_alias=bool(payload.get("create_alias")),
                     preset=str(payload.get("preset") or "").strip(),
                     extra_environment=str(payload.get("extra_environment") or ""),
+                    homepage_enabled=bool(payload.get("homepage_enabled")),
+                    homepage_group=str(payload.get("homepage_group") or ""),
+                    homepage_name=str(payload.get("homepage_name") or ""),
+                    homepage_icon=str(payload.get("homepage_icon") or ""),
+                    homepage_href=str(payload.get("homepage_href") or ""),
+                    homepage_description=str(payload.get("homepage_description") or ""),
                 )
             except ValueError as exc:
                 raise ApiError(400, str(exc)) from exc
